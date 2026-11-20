@@ -5,7 +5,7 @@
 Windows / macOS / Linux 三端桌面应用，基于 **Tauri 2 + Vue 3 + Rust**。
 把「密钥生成 → 公钥部署 → `~/.ssh/config` 编辑 → 权限校准 → 连通诊断」这条过去只能在终端里完成的链路，变成一套可视化、可回滚、可审计的桌面流程。
 
-**核心承诺：私钥始终只存在于你的 `~/.ssh`，程序不保存副本、默认不发起任何网络请求、每次写操作前先备份。**
+**核心承诺：私钥始终只存在于你的 `~/.ssh`，程序不保存副本、不上传任何数据、每次写操作前先备份。默认不发起网络请求；唯一的可选联网行为是更新检查（默认关闭，开启后也只读取 GitHub 的版本文件）。**
 
 ---
 
@@ -49,7 +49,9 @@ Windows / macOS / Linux 三端桌面应用，基于 **Tauri 2 + Vue 3 + Rust**�
 - 数据不可读取时明确显示「无法评估」，绝不伪造分数
 
 ### 设置
-- 亮/暗主题、界面密度、密钥默认值、安全策略、审计保留期
+- 亮/暗主题、界面密度、标题栏风格、密钥默认值、安全策略、审计保留期
+- 标题栏风格：独立标题栏，跟随系统 / Windows（右上角按钮）/ macOS（左上角交通灯）；两种均为自绘，切换后重启应用生效
+- 应用更新：自动检查默认关闭，可手动检查；只读取 GitHub 版本文件，更新包需通过签名校验
 - 本机数据位置一览，可复制路径
 - 全局搜索 `Ctrl/Cmd + K`；弹窗支持 `Esc` 关闭
 
@@ -63,7 +65,8 @@ Windows / macOS / Linux 三端桌面应用，基于 **Tauri 2 + Vue 3 + Rust**�
 | 前端 | Vue 3 Composition API + Vue Router 4（hash 路由）+ Vite 6 |
 | 后端 | Rust（edition 2021） |
 | 加密 | `aes-gcm`（AES-256-GCM）+ `argon2`（Argon2id） |
-| 打包 | NSIS（Windows）/ DMG（macOS）/ deb、AppImage（Linux） |
+| 更新 | Tauri updater（GitHub Releases + minisign 签名校验） |
+| 打包 | NSIS（Windows，当前 Release 目标；MSI/macOS/Linux 待后续） |
 
 选择 Tauri 而非 Electron：安装包小一个数量级、内存占用低，Rust 侧可以精确控制子进程与文件操作边界，这正是本项目安全模型的前提。
 
@@ -166,18 +169,21 @@ node scripts/interact_check.mjs http://localhost:5199/#/key-vault
 
 ```
 KeyHub/
+├── .github/workflows/
+│   └── release.yml              tag 触发：构建 NSIS + 生成 latest.json（草稿 Release）
 ├── scripts/
 │   ├── check_api_contract.mjs   前后端命令契约校验
 │   ├── dom_check.mjs            UI 回归：断言无弹窗遮罩常驻
 │   ├── interact_check.mjs       UI 回归：弹窗开/关闭环
 │   └── gen_icons.py             应用图标生成器
 ├── src/
-│   ├── main.js                  入口 + 路由表
-│   ├── App.vue                  应用外壳（标题栏 / 侧栏 / 主区）
-│   ├── styles/                  tokens.css · base.css · shell.css
-│   ├── components/              AppIcon · AppModal · AppDrawer
-│   │                            ToastHost · AppErrorState
-│   ├── lib/                     api · store · theme · toast
+│   ├── main.js                  入口 + 路由表 + 样式引入
+│   ├── App.vue                  应用外壳（玻璃侧栏 / 顶栏 / 主区 / 浮层宿主）
+│   ├── design/                  鉴枢设计系统资产（css · fonts · vue）
+│   ├── styles/                  app.css（项目自有布局与部件）
+│   ├── components/              AppModal · AppDrawer · AppErrorState
+│   │                            WindowControls · UpdateDialog
+│   ├── lib/                     api · store · theme · toast · updater
 │   └── views/                   Onboarding · EnvCheck · KeyVault
 │                                ConfigEditor · Diagnostics
 │                                SecurityCenter · Settings
@@ -188,7 +194,35 @@ KeyHub/
     └── tauri.conf.json          窗口 / 打包 / CSP
 ```
 
-> 高保真设计稿保留在本地 `ui/` 目录，不随本仓库分发。
+> 高保真设计稿保留在本地 `ui/` 目录，不随本仓库分发；界面样式的真值源是下方「设计系统」里的资产副本。
+
+---
+
+## 设计系统
+
+界面使用 **鉴枢设计系统（AuthNexus Design）v0.1.0**，资产已复制到 `src/design/`
+（复制于 2026-11-20；上游仓库 `yimolab/authnexus-design`，三平台同名）。
+
+| 路径 | 职责 |
+|---|---|
+| `src/design/css/tokens.css` | 设计令牌、明暗主题、玻璃降级 |
+| `src/design/css/brand.css` | 品牌覆盖（`--acid` / logo 双色 / 字体族）——换品牌只改这里 |
+| `src/design/css/base.css` | 元素重置、排版、按钮、表单、表格、标签、提示 |
+| `src/design/css/components.css` | 浮层、下拉、分段、分页、Toast |
+| `src/design/css/motion.css` | 动效与「减少动效」压缩 |
+| `src/design/css/shell.css` | 玻璃侧栏 + 浮层顶栏外壳 |
+| `src/design/vue/` | 组件实现（Icon / PageHead / PanelBlock / SelectMenu 等） |
+| `src/styles/app.css` | 墨钥自有布局与业务部件，引入在资产之后 |
+
+约定：
+
+- **只使用 `anx-` 资产类**；业务布局用 `kh-` 前缀，状态类用 `is-*`，不重写资产组件。
+- 引入顺序固定：`fonts → tokens → brand → base → components → motion → shell → app.css`，见 `src/main.js`。
+- 浮层统一挂到 `#overlay-layer`（`.anx-overlay-layer`），通知挂到 `#toast-layer`（`.anx-toast-layer`）。
+- 主题键为 `authnexus.theme`；`index.html` 首帧预置脚本与 `design/vue/lib/theme.ts` 必须同键。
+- 下拉一律使用 `SelectMenu`，不使用原生 `<select>`。
+- 图标集在 `design/vue/lib/icons.ts` 副本上按项目增补（minimize / maximize / download / upload / rotate / unlock / branch），升级资产时需保留。
+- 升级时对照上游 `CHANGELOG.md` 与 `contracts/`，不要只同步部分文件。
 
 ---
 
@@ -252,10 +286,74 @@ KeyHub/
 
 ---
 
+## 品牌资产
+
+Logo 为「墨印 · 钥孔」：墨黑圆角方印、白色钥匙孔、右下酸橙绿点。
+
+| 资产 | 位置 | 说明 |
+|---|---|---|
+| 主 Logo | `src/assets/brand/logo.svg` | 浅色背景用（黑印白孔） |
+| 深色版 | `src/assets/brand/logo-dark.svg` | 深色背景用（白印黑孔） |
+| UI 标记 | `src/components/BrandMark.vue` | 随鉴枢令牌自动反转，侧栏 30px、标题栏 20px |
+| 应用图标 | `src-tauri/icons/` | `.ico` / `.icns` / PNG 全套，由 Logo 生成 |
+| favicon | `public/favicon.svg` | 浏览器标签页 |
+
+修改 Logo 的流程：
+
+```bash
+# 1. 编辑 src/assets/brand/logo.svg
+# 2. 重新生成应用图标（推荐，支持 SVG）
+npx tauri icon src/assets/brand/logo.svg -o src-tauri/icons
+# 3. 需要离线/自定义尺寸时，也可运行 Pillow 脚本
+python scripts/gen_icons.py
+```
+
+图标生成后需要重新 `npm run app:build`，任务栏、开始菜单与安装包才会使用新图标。
+
+---
+
+## 发布与自动更新
+
+更新链路：GitHub Release 托管安装包与 `latest.json`，客户端用 Tauri updater 读取并校验签名。
+
+**版本号**：发版前同时修改 `package.json` 与 `src-tauri/tauri.conf.json` 的 `version`（两处必须一致）。当前 `bundle.targets` 只构建 NSIS；Windows 之外的安装包等实机验证后再加。
+
+**发版流程**
+
+1. 提交代码，打 tag：`git tag v0.1.1 && git push origin v0.1.1`
+2. GitHub Actions 在 Windows 上构建 NSIS 安装包、生成 `.sig` 与 `latest.json`，创建**草稿 Release**
+3. 核对产物后手动发布 Release；发布后 `latest.json` 才能被客户端读取
+
+**更新端点**
+
+```
+https://github.com/YimoLab/moyao-keyhub/releases/latest/download/latest.json
+```
+
+**签名密钥（必须保管好）**
+
+- 公钥已写入 `src-tauri/tauri.conf.json` 的 `plugins.updater.pubkey`
+- 私钥与密码只在本机/CI Secrets，**绝不提交**
+- GitHub 仓库 Settings → Secrets and variables → Actions 添加：
+  - `TAURI_SIGNING_PRIVATE_KEY`（私钥文件内容）
+  - `TAURI_SIGNING_PRIVATE_KEY_PASSWORD`（私钥密码）
+- 本机私钥在 `~/.tauri/moyao-keyhub.key`（Windows 为 `C:/Users/<用户名>/.tauri/...`），密码在同目录的 `moyao-keyhub.password.txt`
+- 私钥或密码丢失后无法再签发更新，只能换密钥并让用户重新安装
+
+**隐私约定**
+
+- 自动检查更新默认关闭，首次进入主界面提示一次；可在设置 → 应用更新中开启
+- 开启后启动 5 秒检查一次，6 小时内不重复
+- 只 GET `latest.json`，不上传任何信息，不包含遥测
+- 更新包签名校验失败会被拒绝安装
+
+---
+
 ## 开发约定
 
-- **设计稿是视觉真值源**：改 UI 前先看本地 `ui/design-spec.html`。
-- **不硬编码颜色**：一律走 `var(--token)`。
+- **设计系统是视觉真值源**：改 UI 前先看 `src/design/` 与上方「设计系统」约定，上游参考实现见本机 `E:/CasuaIness/Personal/authnexus-design`。
+- **不硬编码颜色**：一律走 `var(--token)`；唯一例外是终端恒深底色（`--kh-term-*`），它在两种主题下都不反转。
+- **不重写设计系统组件**：迁移与升级只复制文件、改 import；业务差异放在 `src/styles/app.css` 或视图自身。
 - **错误必须显式呈现**：不允许 `catch {}` 静默吞掉；失败要有 toast 或行内状态。
 - **未知态不等于失败态**：读不到数据时显示「未知 / 无法评估」，不要折叠成 `0`、`false` 或「未安装」。
 - **危险操作三重奏**：提示风险 → 列出影响 → 要求确认。
@@ -264,9 +362,9 @@ KeyHub/
 
 ### 自定义组件契约
 
-- `AppModal` / `AppDrawer` 的显隐由 `v-model` 控制，根节点必须保留 `v-if`，否则全屏遮罩会常驻并吞掉点击。
+- `AppModal` / `AppDrawer` 的显隐由 `v-model` 控制；内部在 `#overlay-layer` 渲染鉴枢结构（`.anx-scrim` + `.anx-modal` / `.anx-drawer`），负责滚动锁、`Esc`、焦点陷阱与离场动画。
 - 底部按钮区使用 `<template #footer>`；`dismissable=false` 只禁止遮罩 / `Esc` 关闭，右上角 X 始终可关。
-- 路由组件必须是**单根元素**：`App.vue` 用 `<transition mode="out-in">` 包裹，多根组件会导致离场无法结束、切页后主区空白。
+- 路由组件必须是**单根元素**：页面用 `RouteFade` 包裹，多根组件会让离场与滚动复位行为不稳定。
 
 ---
 
