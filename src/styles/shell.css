@@ -1,0 +1,395 @@
+/* ═══════════════════════════════════════════════════════════════
+ * 墨钥 KeyHub · 应用外壳
+ * 规格取自 design-spec.html「04 · APP SHELL」：
+ *   52px 玻璃题栏 · 244px 白色侧栏 · 主区 padding 24·32·48
+ * ═══════════════════════════════════════════════════════════════ */
+
+.app {
+  height: 100vh;
+  display: grid;
+  grid-template-columns: var(--sidebar-w) 1fr;
+  grid-template-rows: var(--titlebar-h) 1fr;
+}
+
+/* ── 题栏：玻璃拟态 ───────────────────────────────────────────── */
+.titlebar {
+  grid-column: 1 / -1;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-4);
+  padding-inline: var(--space-4) var(--space-3);
+  background: color-mix(in srgb, var(--surface) 78%, transparent);
+  backdrop-filter: blur(14px);
+  border-bottom: 1px solid var(--border-soft);
+  -webkit-app-region: drag;
+}
+
+.titlebar-brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: var(--text-sm);
+  letter-spacing: var(--tracking-display);
+  flex: 0 0 auto;
+}
+
+.logo-seal {
+  width: 28px;
+  height: 28px;
+  border-radius: 9px;
+  background: var(--accent);
+  color: var(--accent-on);
+  display: grid;
+  place-items: center;
+  font-family: var(--font-mono);
+  font-size: 13px;
+  font-weight: 700;
+  box-shadow: 0 6px 14px color-mix(in srgb, var(--accent) 28%, transparent);
+  flex: 0 0 28px;
+}
+
+.titlebar-right {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  -webkit-app-region: no-drag;
+}
+
+/* 无边框窗口的自绘窗口控制 */
+.win-controls {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  flex: 0 0 auto;
+  margin-right: -6px;
+  -webkit-app-region: no-drag;
+}
+.win-btn {
+  width: 34px;
+  height: 32px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--muted);
+  display: grid;
+  place-items: center;
+}
+.win-btn:hover {
+  background: var(--border-soft);
+  color: var(--fg);
+}
+.win-btn.close:hover {
+  background: var(--danger);
+  color: #fff;
+}
+
+/* 全局搜索胶囊 */
+.search {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 260px;
+  height: 32px;
+  padding-inline: 11px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-pill);
+  background: var(--bg);
+  color: var(--muted);
+  font-size: 12.5px;
+  transition: border-color var(--motion-fast) var(--ease-standard);
+}
+
+.search:focus-within {
+  border-color: var(--accent);
+  box-shadow: var(--focus-ring);
+}
+
+.search svg {
+  width: 14px;
+  height: 14px;
+  flex: 0 0 14px;
+}
+
+.search input {
+  border: 0;
+  outline: 0;
+  background: transparent;
+  width: 100%;
+  font: inherit;
+  color: var(--fg);
+}
+
+.kbd {
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  padding: 1px 5px;
+  color: var(--muted);
+  white-space: nowrap;
+  flex: 0 0 auto;
+}
+
+/* 本地优先徽章 */
+.trust-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--muted);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-pill);
+  padding: 4px 11px;
+  white-space: nowrap;
+}
+
+.trust-badge svg {
+  width: 13px;
+  height: 13px;
+  color: var(--accent);
+}
+
+/* 主题切换 */
+.theme-btn {
+  appearance: none;
+  width: 32px;
+  height: 32px;
+  display: inline-grid;
+  place-items: center;
+  border-radius: 10px;
+  border: 1px solid var(--border-soft);
+  background: var(--surface);
+  color: var(--fg-2);
+  flex: 0 0 auto;
+  transition: background var(--motion-fast) var(--ease-standard),
+    color var(--motion-fast) var(--ease-standard);
+}
+
+.theme-btn:hover {
+  background: var(--surface-warm);
+  color: var(--accent);
+}
+
+.theme-btn svg {
+  width: 16px;
+  height: 16px;
+}
+
+/* ── 侧栏 ─────────────────────────────────────────────────────── */
+.sidebar {
+  border-right: 1px solid var(--border-soft);
+  background: var(--surface);
+  padding: var(--space-3) 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+
+.nav-label {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--muted);
+  padding: 10px 12px 6px;
+}
+
+.nav-item {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  color: var(--muted);
+  font-size: var(--text-sm);
+  font-weight: 500;
+  white-space: nowrap;
+  transition: background var(--motion-fast) var(--ease-standard),
+    color var(--motion-fast) var(--ease-standard);
+}
+
+.nav-item svg {
+  width: 18px;
+  height: 18px;
+  flex: 0 0 18px;
+}
+
+.nav-item:hover {
+  background: var(--border-soft);
+  color: var(--fg);
+}
+
+.nav-item.active {
+  background: var(--surface-warm);
+  color: var(--accent);
+  font-weight: 650;
+}
+
+/* 侧栏底部环境状态卡 */
+.sidebar-foot {
+  margin-top: auto;
+  border-top: 1px solid var(--border-soft);
+  margin-inline: -10px;
+  padding: var(--space-3) var(--space-3) 2px;
+  display: grid;
+  gap: 6px;
+}
+
+.env-line {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--muted);
+}
+
+.env-line b {
+  color: var(--fg);
+  font-weight: 600;
+  text-align: right;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.env-line b.ok {
+  color: var(--success-ink);
+}
+
+.env-line b.warn {
+  color: var(--warn-ink);
+}
+
+.env-line b.danger {
+  color: var(--danger-ink);
+}
+
+/* agent 未运行：中性灰，不制造焦虑 */
+.env-line b.idle {
+  color: var(--muted);
+}
+
+/* 环境状态卡右侧文字过长时（如 "agent 已加载 3 把密钥"）允许收窄 */
+.sidebar-foot .env-line span {
+  flex: 0 0 auto;
+}
+
+/* ── 主区 ─────────────────────────────────────────────────────── */
+.main {
+  overflow: auto;
+  padding: var(--space-6) var(--space-8) var(--space-12);
+  min-width: 0;
+}
+
+.page-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-4);
+  margin-bottom: var(--space-5);
+}
+
+.page-head h1 {
+  font-family: var(--font-display);
+  font-size: var(--text-xl);
+  font-weight: 750;
+  letter-spacing: var(--tracking-display);
+  line-height: var(--leading-tight);
+}
+
+.page-head .sub {
+  color: var(--muted);
+  margin-top: 5px;
+  font-size: 13.5px;
+  max-width: 72ch;
+}
+
+/* 双栏工作区：1fr + 348px */
+.layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 348px;
+  gap: var(--space-5);
+  align-items: start;
+}
+
+/* 窗口最小宽度是 960，内容区还要减去侧栏与内边距；
+ * 双栏在 ≤1100 时必须折叠，否则两栏各剩不到 300px。 */
+@media (max-width: 1100px) {
+  .layout {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* 路由切换过渡 */
+.view-fade-enter-active {
+  transition: opacity var(--motion-base) var(--ease-standard);
+}
+
+.view-fade-enter-from {
+  opacity: 0;
+}
+
+.view-fade-leave-active {
+  transition: opacity var(--motion-fast) var(--ease-standard);
+}
+
+.view-fade-leave-to {
+  opacity: 0;
+}
+
+/* ═══ ≤920px 折叠 ══════════════════════════════════════════════ */
+@media (max-width: 920px) {
+  .app {
+    grid-template-columns: 1fr;
+    grid-template-rows: var(--titlebar-h) auto 1fr;
+    height: auto;
+    min-height: 100vh;
+  }
+
+  body {
+    overflow: auto;
+  }
+
+  .sidebar {
+    flex-direction: row;
+    align-items: center;
+    overflow-x: auto;
+    border-right: 0;
+    border-bottom: 1px solid var(--border-soft);
+    padding: var(--space-2) var(--space-3);
+  }
+
+  .nav-label,
+  .sidebar-foot {
+    display: none;
+  }
+
+  .search,
+  .trust-badge {
+    display: none;
+  }
+
+  .main {
+    padding: var(--space-5) var(--space-4) var(--space-8);
+  }
+
+  .layout {
+    grid-template-columns: 1fr;
+  }
+
+  .drawer {
+    top: auto;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    width: 100%;
+    height: 88vh;
+    border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+  }
+}

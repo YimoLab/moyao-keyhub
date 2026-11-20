@@ -1,0 +1,26 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "default",
+  "description": "墨钥 KeyHub 主窗口权限：仅开放剪贴板、系统对话框、通知、浏览器跳转与平台识别。绝不开放文件系统通配访问——所有文件读写都在 Rust 侧受控实现。",
+  "windows": ["main"],
+  "permissions": [
+    "core:default",
+    "core:window:allow-start-dragging",
+    "core:window:allow-minimize",
+    "core:window:allow-maximize",
+    "core:window:allow-unmaximize",
+    "core:window:allow-toggle-maximize",
+    "core:window:allow-close",
+    "os:allow-platform",
+    "os:allow-version",
+    "os:allow-arch",
+    "clipboard-manager:allow-write-text",
+    "clipboard-manager:allow-read-text",
+    "dialog:allow-open",
+    "dialog:allow-save",
+    "notification:allow-notify",
+    "notification:allow-is-permission-granted",
+    "notification:allow-request-permission",
+    "opener:allow-open-url"
+  ]
+}

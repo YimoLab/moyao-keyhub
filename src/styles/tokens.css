@@ -1,0 +1,123 @@
+/* ═══════════════════════════════════════════════════════════════
+ * 墨钥 KeyHub · 设计 Token 契约
+ * 严格取自 ui/design-spec.html 与 ui/screens/*.html 的真实 CSS。
+ * 亮色为唯一基准；暗色通过 [data-theme="dark"] 覆盖同名变量实现。
+ * ═══════════════════════════════════════════════════════════════ */
+
+:root {
+  /* 原生控件（select 弹层 / 滚动条）跟随主题 */
+  color-scheme: light;
+
+  /* ── 色彩 ─────────────────────────────────────────────────── */
+  --bg: #f6f7f9;
+  --surface: #ffffff;
+  --surface-warm: #eef4ff;
+  --fg: #172033;
+  --fg-2: #3b4658;
+  --muted: #6b7689;
+  --meta: #2563eb;
+  --border: #d8dee8;
+  --border-soft: #edf1f6;
+  --accent: #2563eb;
+  --accent-on: #ffffff;
+  --accent-hover: color-mix(in oklab, var(--accent), black 8%);
+  --accent-active: color-mix(in oklab, var(--accent), black 14%);
+  --success: #16a34a;
+  --warn: #f59e0b;
+  --danger: #dc2626;
+
+  /* 语义软底（8–12% 混入 surface） */
+  --success-soft: color-mix(in srgb, var(--success) 10%, var(--surface));
+  --warn-soft: color-mix(in srgb, var(--warn) 10%, var(--surface));
+  --danger-soft: color-mix(in srgb, var(--danger) 10%, var(--surface));
+  --accent-soft: color-mix(in srgb, var(--accent) 10%, var(--surface));
+  --fg-soft: color-mix(in srgb, var(--fg) 6%, transparent);
+
+  /* 语义前景（保证对比度） */
+  --success-ink: color-mix(in oklab, var(--success), black 6%);
+  --warn-ink: color-mix(in oklab, var(--warn), black 22%);
+  --danger-ink: color-mix(in oklab, var(--danger), black 4%);
+
+  /* 次要文字层级：历史上大量视图引用这两个名字但一直没有定义，
+     导致文字颜色只能靠继承，暗色下不可控。统一映射到既有语义色。 */
+  --fg-muted: var(--muted);
+  --fg-faint: color-mix(in srgb, var(--muted) 72%, transparent);
+
+  /* ── 字体 ─────────────────────────────────────────────────── */
+  --font-display: Inter, "HarmonyOS Sans SC", "Microsoft YaHei", system-ui, sans-serif;
+  --font-body: Inter, "HarmonyOS Sans SC", "Microsoft YaHei", system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", "SF Mono", ui-monospace, Menlo, Consolas, monospace;
+
+  --text-xs: 12px;
+  --text-sm: 14px;
+  --text-base: 16px;
+  --text-lg: 18px;
+  --text-xl: 22px;
+  --text-2xl: 30px;
+  --text-3xl: 42px;
+  --text-4xl: 58px;
+  --leading-body: 1.5;
+  --leading-tight: 1.12;
+  --tracking-display: -0.015em;
+
+  /* ── 间距（8pt 网格） ─────────────────────────────────────── */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-8: 32px;
+  --space-12: 48px;
+
+  /* ── 形状与深度 ───────────────────────────────────────────── */
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 18px;
+  --radius-pill: 9999px;
+  --elev-ring: 0 0 0 1px var(--border);
+  --elev-raised: 0 16px 40px rgba(23, 32, 51, 0.1);
+  --focus-ring: 0 0 0 4px rgba(37, 99, 235, 0.22);
+
+  /* ── 动效 ─────────────────────────────────────────────────── */
+  --motion-fast: 140ms;
+  --motion-base: 220ms;
+  --ease-standard: cubic-bezier(0.2, 0, 0, 1);
+
+  /* ── 外壳尺寸 ─────────────────────────────────────────────── */
+  --titlebar-h: 52px;
+  --sidebar-w: 244px;
+  --container-max: 1200px;
+}
+
+/* ═══ 暗色契约（token 派生，组件代码零改动） ══════════════════ */
+[data-theme="dark"] {
+  color-scheme: dark;
+
+  --bg: #0f1420;
+  --surface: #1a2232;
+  --surface-warm: #1d2a47;
+  --fg: #e7ecf5;
+  --fg-2: #c3cddf;
+  --muted: #8b98ad;
+  --meta: #4c8dff;
+  --border: #2c3750;
+  --border-soft: #232c40;
+  --accent: #4c8dff;
+  --accent-on: #0f1420;
+  --accent-hover: color-mix(in oklab, var(--accent), white 10%);
+  --accent-active: color-mix(in oklab, var(--accent), black 12%);
+  --success: #2fbf6b;
+  --warn: #f0a32c;
+  --danger: #e5484d;
+  --danger-ink: #e5484d;
+  --focus-ring: 0 0 0 4px rgba(76, 141, 255, 0.28);
+  --elev-raised: 0 16px 40px rgba(0, 0, 0, 0.45);
+  --elev-ring: 0 0 0 1px var(--border);
+}
+
+/* 终端恒深底 */
+[data-theme="dark"] .terminal,
+[data-theme="dark"] .codebox {
+  background: #0d1526;
+}

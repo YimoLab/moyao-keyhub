@@ -1,0 +1,72 @@
+[package]
+name = "keyhub"
+version = "0.1.0"
+description = "墨钥 KeyHub · 多平台 SSH 密钥管理桌面程序"
+authors = ["KeyHub"]
+edition = "2021"
+rust-version = "1.77"
+
+[lib]
+name = "keyhub_lib"
+# 桌面端（Windows / macOS / Linux）只需要 rlib —— src/main.rs 用它链接出可执行文件，
+# 不产出任何动态库。staticlib / cdylib 是 Tauri 移动端（Android / iOS）才需要的产物。
+#
+# ⚠️ 为什么桌面构建时不能带上 cdylib：
+# 在 Windows + GNU 工具链（x86_64-pc-windows-gnu）下，构建 cdylib 会生成
+# keyhub_lib.dll，链接器 ld 需要导出整个依赖树（Tauri + wry + windows-sys …）
+# 的全部符号，实测达 12 万个，而 PE 格式的导出序号表只有 16 位（上限 65535），
+# 于是报错：
+#     x86_64-w64-mingw32/bin/ld.exe: error: export ordinal too large: 121351
+#     collect2.exe: error: ld returned 1 exit status
+# 这是 GNU 工具链的固有限制，与代码无关。
+#
+# 移动端构建走 cargo-mobile2，会通过 --target aarch64-linux-android 等目标触发，
+# 那时才需要 staticlib/cdylib。当前项目 P0 阶段只交付三端桌面，故先只保留 rlib。
+# 将来补移动端时，改回：
+#     crate-type = ["staticlib", "cdylib", "rlib"]
+crate-type = ["rlib"]
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+tauri = { version = "2", features = [] }
+tauri-plugin-clipboard-manager = "2"
+tauri-plugin-dialog = "2"
+tauri-plugin-notification = "2"
+tauri-plugin-opener = "2"
+tauri-plugin-os = "2"
+
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+thiserror = "2"
+
+# AES-256-GCM 加密备份
+aes-gcm = "0.10"
+argon2 = { version = "0.5", features = ["std"] }
+rand = "0.8"
+base64 = "0.22"
+# 用 0o600 等 Unix 权限位（Windows 下走 NTFS ACL，此依赖仅做类型标识）
+libc = "0.2"
+zip = { version = "2", default-features = false, features = ["deflate", "time"] }
+chrono = { version = "0.4", features = ["serde"] }
+dirs = "5"
+walkdir = "2"
+sha2 = "0.10"
+
+[target.'cfg(windows)'.dependencies]
+windows-sys = { version = "0.59", features = [
+  "Win32_Foundation",
+  "Win32_Security",
+  "Win32_Security_Authorization",
+  "Win32_Storage_FileSystem",
+  "Win32_System_Threading",
+  "Win32_UI_Shell",
+] }
+
+[profile.release]
+panic = "abort"
+codegen-units = 1
+lto = true
+opt-level = "s"
+strip = true
