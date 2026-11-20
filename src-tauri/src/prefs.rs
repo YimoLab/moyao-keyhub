@@ -14,6 +14,10 @@ use crate::paths;
 pub struct Prefs {
     /// 主题：`light` | `dark` | `system`
     pub theme: String,
+    /// 标题栏风格：`auto`（Windows/Linux 右上按钮、macOS 左上交通灯）| `windows` | `mac`
+    pub titlebar_style: String,
+    /// 启动时自动检查更新（默认关闭，仅在用户开启后访问 GitHub 版本文件）
+    pub auto_check_updates: bool,
     /// 语言：`zh-CN` | `en-US`
     pub locale: String,
     /// 是否自动为新密钥设置 600 权限
@@ -58,6 +62,8 @@ impl Default for Prefs {
     fn default() -> Self {
         Prefs {
             theme: "system".into(),
+            titlebar_style: "auto".into(),
+            auto_check_updates: false,
             locale: "zh-CN".into(),
             auto_fix_perms: true,
             auto_backup_config: true,
@@ -145,6 +151,9 @@ fn sanitize(mut p: Prefs) -> Prefs {
     }
     if !matches!(p.locale.as_str(), "zh-CN" | "en-US") {
         p.locale = "zh-CN".into();
+    }
+    if !matches!(p.titlebar_style.as_str(), "auto" | "windows" | "mac") {
+        p.titlebar_style = "auto".into();
     }
     if !matches!(p.default_algorithm.as_str(), "ed25519" | "rsa") {
         p.default_algorithm = "ed25519".into();

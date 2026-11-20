@@ -33,7 +33,9 @@
   },
   "bundle": {
     "active": true,
-    "targets": ["nsis", "msi", "deb", "appimage", "dmg"],
+    "targets": [
+      "nsis"
+    ],
     "icon": [
       "icons/32x32.png",
       "icons/128x128.png",
@@ -51,7 +53,10 @@
     "windows": {
       "nsis": {
         "installMode": "currentUser",
-        "languages": ["SimpChinese", "English"]
+        "languages": [
+          "SimpChinese",
+          "English"
+        ]
       }
     },
     "macOS": {
@@ -59,8 +64,19 @@
     },
     "linux": {
       "deb": {
-        "depends": ["openssh-client"]
+        "depends": [
+          "openssh-client"
+        ]
       }
+    },
+    "createUpdaterArtifacts": true
+  },
+  "plugins": {
+    "updater": {
+      "endpoints": [
+        "https://github.com/YimoLab/moyao-keyhub/releases/latest/download/latest.json"
+      ],
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IEUyMkMwOTEwQjM5MThDNjUKUldSbGpKR3pFQWtzNHJPeGVVaDBUM0VXNm0vYnVPV3JHWjdMeFNFVm9nNlVLdXlvaUhXelBRK0gK"
     }
   }
 }
