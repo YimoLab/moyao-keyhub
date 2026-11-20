@@ -10,9 +10,11 @@ node_modules/
 dist/
 src-tauri/target/
 
-# build.rs 自动归集的 WebView2Loader.dll（从 target 里拷出来的副本）
-# 它是构建产物，由 build.rs 在每次构建时重新生成，不应提交
-src-tauri/binaries/
+# build.rs 归集的 WebView2Loader.dll。
+# 需要入库：CI 的干净检出（MSVC）找不到 webview2-com-sys 的 DLL 输出，
+# 而 tauri.conf 的 bundle.resources 又要求该路径存在。
+src-tauri/binaries/*
+!src-tauri/binaries/WebView2Loader.dll
 
 # Tauri 自动生成的权限 schema（tauri dev / build 会重建）
 src-tauri/gen/schemas/
