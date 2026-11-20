@@ -29,6 +29,25 @@ jobs:
       - name: 安装依赖
         run: npm ci
 
+      - name: 校验更新签名密钥
+        shell: bash
+        env:
+          KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          PASS: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+        run: |
+          set -e
+          if [ -z "$KEY" ]; then echo "::error::TAURI_SIGNING_PRIVATE_KEY 未配置"; exit 1; fi
+          if [ -z "$PASS" ]; then echo "::error::TAURI_SIGNING_PRIVATE_KEY_PASSWORD 未配置"; exit 1; fi
+          echo "签名密钥长度: ${#KEY}"
+          echo "test" > "$RUNNER_TEMP/payload.txt"
+          if ! npx tauri signer sign -k "$KEY" -p "$PASS" "$RUNNER_TEMP/payload.txt" 2> "$RUNNER_TEMP/sign.err"; then
+            msg=$(tail -n 3 "$RUNNER_TEMP/sign.err" | tr '
+' ' ' | cut -c1-300)
+            echo "::error::签名密钥校验失败：$msg"
+            exit 1
+          fi
+          echo "签名密钥校验通过"
+
       - name: 构建、签名并创建 Release
         uses: tauri-apps/tauri-action@v0
         env:
