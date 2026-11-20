@@ -47,6 +47,20 @@ jobs:
           fi
           echo "签名密钥校验通过"
 
+      - name: 诊断构建
+        shell: bash
+        env:
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+        run: |
+          set -o pipefail
+          if ! npm run tauri -- build --no-bundle > build.log 2>&1; then
+            msg=$(tail -n 40 build.log | awk '{printf "%s | ", $0}' | cut -c1-1800)
+            echo "::error::tauri build --no-bundle 失败：$msg"
+            exit 1
+          fi
+          echo "诊断构建通过"
+
       - name: 构建、签名并创建 Release
         uses: tauri-apps/tauri-action@v0
         env:
