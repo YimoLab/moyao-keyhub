@@ -244,7 +244,7 @@ onMounted(async () => {
   try {
     appVersion.value = await getVersion()
   } catch {
-    appVersion.value = '0.1.0'
+    appVersion.value = '0.2.0'
   }
 })
 
@@ -653,7 +653,7 @@ const platformLabel = computed(() => {
               <span class="kh-brand-mark kh-brand-mark--static"><BrandMark /></span>
               <div>
                 <div class="anx-t-strong">墨钥 KeyHub</div>
-                <div class="anx-t-xs anx-t-muted">v0.1.0-mvp · 本地优先</div>
+                <div class="anx-t-xs anx-t-muted">v{{ appVersion }} · 本地优先</div>
               </div>
             </div>
             <div class="kh-hint">
