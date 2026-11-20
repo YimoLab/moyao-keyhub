@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="墨钥 KeyHub（深色）">
+  <rect x="16" y="16" width="480" height="480" rx="120" fill="#F5F5F5"/>
+  <circle cx="236" cy="214" r="66" fill="#262626"/>
+  <path d="M236 280v98" stroke="#262626" stroke-width="44" stroke-linecap="round"/>
+  <path d="M236 326h52" stroke="#262626" stroke-width="30" stroke-linecap="round"/>
+  <circle cx="386" cy="386" r="24" fill="#78EA57"/>
+</svg>

@@ -2,21 +2,23 @@
 """
 墨钥 KeyHub · 应用图标生成器
 
+Logo A「墨印 · 钥孔」：墨黑圆角方印 + 白色钥匙孔 + 酸橙绿点。
+几何参数与 src/assets/brand/logo.svg 一致（512 画布，四周 16px 透明边距）。
+
 生成 Tauri bundle 所需的全部图标尺寸：
   32x32.png / 128x128.png / 128x128@2x.png(=256) / icon.png / icon.ico / icon.icns
+  以及 Windows Store 的 Square*Logo / StoreLogo。
 
-设计：与侧栏 logo-seal 一致的「墨」字蓝底方章。
-背景圆角矩形用 accent #2563eb，字形用白色，风格与 design-spec 对齐。
-
-依赖 Pillow（若缺失则先安装）。
+说明：
+  · 推荐直接用 `npx tauri icon src/assets/brand/logo.svg` 生成到 src-tauri/icons；
+  · 本脚本输出到 scripts/icons（不随仓库分发），供离线/自定义尺寸时使用；
+  · 依赖 Pillow。
 """
-import io
 import os
-import struct
 import sys
 
 try:
-    from PIL import Image, ImageDraw, ImageFont
+    from PIL import Image, ImageDraw
 except ImportError:
     print("NEED_PIL")
     sys.exit(9)
@@ -24,73 +26,51 @@ except ImportError:
 OUT = os.path.join(os.path.dirname(os.path.abspath(__file__)), "icons")
 os.makedirs(OUT, exist_ok=True)
 
-ACCENT = (37, 99, 235, 255)      # #2563eb
-ACCENT_DARK = (29, 78, 216, 255)  # 稍深，用于底纹
-INK = (255, 255, 255, 255)
-
-# 尝试找一个能渲染中文的字体（只列公共路径，不写死本机目录）
-FONT_CANDIDATES = [
-    r"C:\Windows\Fonts\msyhbd.ttc",
-    r"C:\Windows\Fonts\msyh.ttc",
-    r"C:\Windows\Fonts\simhei.ttf",
-    r"C:\Windows\Fonts\simsun.ttc",
-    "/usr/share/fonts/truetype/noto/NotoSansCJK-Bold.ttc",
-    "/System/Library/Fonts/PingFang.ttc",
-]
-
-
-def pick_font(size):
-    for p in FONT_CANDIDATES:
-        if os.path.exists(p):
-            try:
-                return ImageFont.truetype(p, size)
-            except Exception:
-                continue
-    return None
+# 品牌色（与鉴枢令牌一致）
+INK = (38, 38, 38, 255)        # #262626
+WHITE = (255, 255, 255, 255)   # 白色钥匙孔
+ACID = (120, 234, 87, 255)     # #78EA57
 
 
 def make_icon(px):
-    """生成一枚图标：圆角方章 + 墨字。"""
-    S = px * 4  # 4x 超采样，缩小后边缘干净
+    """按 512 坐标系绘制「墨印 · 钥孔」，4x 超采样后缩小。"""
+    S = px * 4
+
+    def v(n):
+        return int(round(S * n / 512))
+
     img = Image.new("RGBA", (S, S), (0, 0, 0, 0))
     d = ImageDraw.Draw(img)
 
-    # 圆角半径：约 22% 边长，视觉上接近 design-spec 的 logo-seal 比例
-    r = int(S * 0.22)
-    d.rounded_rectangle([0, 0, S - 1, S - 1], radius=r, fill=ACCENT)
+    # 圆角方印（16px 透明边距，圆角 120）
+    d.rounded_rectangle(
+        [v(16), v(16), v(496), v(496)],
+        radius=v(120),
+        fill=INK,
+    )
 
-    # 左上角极淡径向高光（低透明度，不破坏字形可读性）
-    glow = Image.new("RGBA", (S, S), (0, 0, 0, 0))
-    gd = ImageDraw.Draw(glow)
-    gd.ellipse([-S * 0.35, -S * 0.35, S * 0.75, S * 0.75], fill=(255, 255, 255, 26))
-    img = Image.alpha_composite(img, glow)
-    # 重新裁回圆角（高光溢出圆角外要抹掉）
-    mask = Image.new("L", (S, S), 0)
-    ImageDraw.Draw(mask).rounded_rectangle([0, 0, S - 1, S - 1], radius=r, fill=255)
-    img.putalpha(mask)
-    d = ImageDraw.Draw(img)
+    # 钥匙孔：圆头 + 柄 + 齿
+    cx, cy = v(236), v(214)
+    d.ellipse(
+        [cx - v(66), cy - v(66), cx + v(66), cy + v(66)],
+        fill=WHITE,
+    )
+    stem = v(44)
+    d.rounded_rectangle(
+        [cx - stem // 2, v(280), cx + stem // 2, v(378)],
+        radius=stem // 2,
+        fill=WHITE,
+    )
+    tooth = v(30)
+    d.rounded_rectangle(
+        [cx, v(326) - tooth // 2, v(288), v(326) + tooth // 2],
+        radius=tooth // 2,
+        fill=WHITE,
+    )
 
-    # 居中「墨」字
-    txt = "墨"
-    fs = int(S * 0.56)
-    font = pick_font(fs)
-    if font is None:
-        # 拿不到中文字体时退化为几何钥匙孔，保证图标不空
-        cx, cy = S // 2, S // 2
-        rr = int(S * 0.17)
-        d.ellipse(
-            [cx - rr, cy - rr * 1.5, cx + rr, cy + rr * 0.5],
-            outline=INK,
-            width=int(S * 0.07),
-        )
-        d.line([cx, cy + rr * 0.4, cx, cy + rr * 2.0], fill=INK, width=int(S * 0.075))
-        d.line(
-            [cx, cy + rr * 1.3, cx + rr * 0.9, cy + rr * 1.3],
-            fill=INK,
-            width=int(S * 0.075),
-        )
-    else:
-        d.text((S / 2, S / 2), txt, font=font, fill=INK, anchor="mm")
+    # 品牌绿点
+    gx, gy, gr = v(386), v(386), v(24)
+    d.ellipse([gx - gr, gy - gr, gx + gr, gy + gr], fill=ACID)
 
     return img.resize((px, px), Image.LANCZOS)
 
@@ -119,25 +99,20 @@ def main():
             cache[px] = make_icon(px)
         cache[px].save(os.path.join(OUT, name), "PNG")
 
-    # ICO：内嵌多尺寸，Windows 任务栏/资源管理器各取所需
+    # ICO：内嵌多尺寸
     ico_sizes = [16, 24, 32, 48, 64, 128, 256]
-    ico_imgs = []
     for px in ico_sizes:
         if px not in cache:
             cache[px] = make_icon(px)
-        ico_imgs.append(cache[px])
     cache[256].save(
         os.path.join(OUT, "icon.ico"),
         format="ICO",
         sizes=[(p, p) for p in ico_sizes],
     )
 
-    # ICNS：macOS 需要，使用 Pillow 的 icns 写出（仅支持有限尺寸集）
+    # ICNS：macOS
     try:
-        cache[512].save(
-            os.path.join(OUT, "icon.icns"),
-            format="ICNS",
-        )
+        cache[512].save(os.path.join(OUT, "icon.icns"), format="ICNS")
     except Exception as e:
         print("ICNS_WARN:", e)
 
