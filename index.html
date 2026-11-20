@@ -4,9 +4,35 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>墨钥 KeyHub</title>
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+
+    <!-- 字体预加载：Albert Sans 是可变字体，一份文件覆盖 400–700 -->
+    <link
+      rel="preload"
+      href="/src/design/fonts/albert-sans-latin.woff2"
+      as="font"
+      type="font/woff2"
+      crossorigin
+    />
+
+    <!-- 主题预置：首帧前同步执行，键值必须与 design/vue/lib/theme.ts 一致。
+         放在 public/ 而非内联：Tauri CSP 为 script-src 'self'，内联脚本会被拦截；
+         用 classic script 而非 module：module 默认 defer，会在首帧之后才执行。 -->
+    <script src="/theme-init.js"></script>
   </head>
   <body>
     <div id="app"></div>
+
+    <!-- 浮层与通知的 Teleport 目标：类名必须带 anx- 前缀 -->
+    <div id="overlay-layer" class="anx-overlay-layer"></div>
+    <div
+      id="toast-layer"
+      class="anx-toast-layer"
+      role="region"
+      aria-live="polite"
+      aria-label="操作通知"
+    ></div>
+
     <script type="module" src="/src/main.js"></script>
   </body>
 </html>

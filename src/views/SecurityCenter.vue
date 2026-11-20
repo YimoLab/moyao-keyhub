@@ -13,7 +13,11 @@ import { ref, computed, onMounted } from 'vue'
 import * as api from '../lib/api'
 import { useToast } from '../lib/toast'
 import { useEnvStore } from '../lib/store'
-import AppIcon from '../components/AppIcon.vue'
+import Icon from '../design/vue/ui/Icon.vue'
+import PageHead from '../design/vue/ui/PageHead.vue'
+import SelectMenu from '../design/vue/ui/SelectMenu.vue'
+import AlertBox from '../design/vue/ui/AlertBox.vue'
+import FieldInput from '../design/vue/ui/FieldInput.vue'
 import AppModal from '../components/AppModal.vue'
 
 const toast = useToast()
@@ -448,6 +452,13 @@ const categoryOptions = [
   { value: 'security', label: '安全' },
 ]
 
+const resultOptions = [
+  { value: '', label: '全部结果' },
+  { value: 'ok', label: '成功' },
+  { value: 'fail', label: '失败' },
+  { value: 'warn', label: '警告' },
+]
+
 async function exportCsv() {
   try {
     const p = await api.exportAuditCsv('')
@@ -500,428 +511,500 @@ onMounted(async () => {
 </script>
 
 <template>
-  <div class="sec">
-    <div class="page-head">
-      <div>
-        <h1>安全中心</h1>
-        <p class="sub">权限、口令、ssh-agent 与备份的整体状态。评分只反映当前可读取到的数据。</p>
-      </div>
-    </div>
+  <div class="kh-page">
+    <PageHead
+      title="安全中心"
+      desc="权限、口令、ssh-agent 与备份的整体状态。评分只反映当前可读取到的数据。"
+    />
 
     <!-- ══════ 顶部：评分 + 体检 ══════ -->
-    <div class="hero-grid">
+    <div class="kh-sec-hero kh-collapse">
       <!-- 评分卡 -->
-      <div class="card score-card" :class="scoreLevel.tone">
-        <div class="sc-label">安全评分</div>
-        <div class="sc-score">
-          <span class="num">{{ score ?? '—' }}</span>
-          <span v-if="score !== null" class="max">/100</span>
-        </div>
-        <div class="sc-level">
-          <span class="pill" :class="scoreLevel.tone">{{ scoreLevel.label }}</span>
-          <span class="desc">{{ scoreLevel.desc }}</span>
-        </div>
-        <div class="sc-bars">
-          <div v-for="b in bars" :key="b.label" class="bar-row">
-            <span class="bl">{{ b.label }}</span>
-            <div class="bar">
-              <span
-                class="fill"
-                :class="b.value >= 90 ? 'ok' : b.value >= 60 ? 'warn' : 'danger'"
-                :style="{ width: b.value + '%' }"
-              />
+      <section class="anx-panel kh-score">
+        <div class="anx-panel__body">
+          <div class="kh-score__label">安全评分</div>
+          <div class="kh-score__num">
+            <span class="kh-score__value">{{ score ?? '—' }}</span>
+            <span v-if="score !== null" class="kh-score__max">/100</span>
+          </div>
+          <div class="kh-score__level">
+            <span
+              class="anx-badge"
+              :class="{
+                'anx-badge--ok': scoreLevel.tone === 'ok',
+                'anx-badge--warn': scoreLevel.tone === 'warn',
+                'anx-badge--danger': scoreLevel.tone === 'danger',
+                'anx-badge--neutral': scoreLevel.tone === 'idle',
+              }"
+            >
+              {{ scoreLevel.label }}
+            </span>
+            <span class="anx-t-xs anx-t-muted">{{ scoreLevel.desc }}</span>
+          </div>
+
+          <div class="kh-score__bars">
+            <div v-for="b in bars" :key="b.label" class="kh-meter">
+              <span class="kh-meter__label">{{ b.label }}</span>
+              <span class="kh-meter__track">
+                <span
+                  class="kh-meter__fill"
+                  :class="b.value >= 90 ? 'kh-meter__fill--ok' : b.value >= 60 ? 'kh-meter__fill--warn' : 'kh-meter__fill--danger'"
+                  :style="{ width: b.value + '%' }"
+                />
+              </span>
+              <span class="kh-meter__value">{{ b.value }}</span>
             </div>
-            <span class="bv">{{ b.value }}</span>
           </div>
         </div>
-      </div>
+      </section>
 
       <!-- 体检清单 -->
-      <div class="card check-card">
-        <div class="card-head">
-          <span class="ch-title"><AppIcon name="shield" :size="14" /> 安全体检</span>
-          <button class="btn ghost xs" :disabled="loading" @click="loadAll">
-            <AppIcon name="refresh" :size="13" /> 重新体检
-          </button>
-        </div>
-        <div v-if="loading" class="mini-empty"><span class="spin" /> 正在体检…</div>
-        <ul v-else class="check-list">
-          <li v-for="c in checks" :key="c.key" class="check-row" :class="c.level">
-            <span class="ck-icon"><AppIcon :name="c.icon" :size="15" /></span>
-            <div class="ck-body">
-              <div class="ck-top">
-                <strong>{{ c.title }}</strong>
-                <span class="pill" :class="c.ok === null ? 'idle' : c.ok ? 'ok' : c.level === 'error' ? 'danger' : 'warn'">
-                  {{ c.value }}
-                </span>
-              </div>
-              <p class="ck-detail">{{ c.detail }}</p>
-              <p class="ck-expect">标准：{{ c.expect }}</p>
-            </div>
-            <button
-              v-if="c.action"
-              class="btn xs"
-              :disabled="busy"
-              @click="runCheckAction(c.action)"
-            >
-              <span v-if="busy && busy === c.action" class="spin" />
-              {{ c.actionLabel }}
+      <section class="anx-panel">
+        <div class="anx-panel__head">
+          <div><h2><Icon name="shield" :size="15" /> 安全体检</h2></div>
+          <div class="anx-panel__head-actions">
+            <button class="anx-btn anx-btn--ghost anx-btn--sm" :disabled="loading" @click="loadAll">
+              <Icon name="refresh" :size="14" /> 重新体检
             </button>
-          </li>
-        </ul>
-      </div>
+          </div>
+        </div>
+        <div class="anx-panel__body">
+          <div v-if="loading" class="anx-empty kh-empty-inline">
+            <span class="kh-spin kh-spin--lg" />
+            <p class="anx-empty__title">正在体检…</p>
+          </div>
+          <ul v-else class="kh-list">
+            <li v-for="c in checks" :key="c.key" class="kh-list__item kh-check-row">
+              <span class="kh-check-row__icon" :class="'kh-check-row__icon--' + c.level">
+                <Icon :name="c.icon" :size="16" />
+              </span>
+              <div class="kh-list__body">
+                <div class="kh-list__title">
+                  {{ c.title }}
+                  <span
+                    class="anx-badge"
+                    :class="
+                      c.ok === null
+                        ? 'anx-badge--neutral'
+                        : c.ok
+                          ? 'anx-badge--ok'
+                          : c.level === 'error'
+                            ? 'anx-badge--danger'
+                            : 'anx-badge--warn'
+                    "
+                  >
+                    {{ c.value }}
+                  </span>
+                </div>
+                <p class="kh-list__text">{{ c.detail }}</p>
+                <p class="kh-list__text kh-fine">标准：{{ c.expect }}</p>
+              </div>
+              <button
+                v-if="c.action"
+                class="anx-btn anx-btn--ghost anx-btn--sm"
+                :disabled="busy"
+                @click="runCheckAction(c.action)"
+              >
+                <span v-if="busy && busy === c.action" class="anx-btn__spinner" />
+                {{ c.actionLabel }}
+              </button>
+            </li>
+          </ul>
+        </div>
+      </section>
     </div>
 
     <!-- ══════ ssh-agent ══════ -->
-    <div class="card agent-card">
-      <div class="card-head">
-        <span class="ch-title"><AppIcon name="shield" :size="14" /> ssh-agent</span>
-        <div class="head-right">
-          <label class="switch-row">
-            <span>开机自启</span>
-            <button
-              class="switch"
-              :class="{ on: agent?.autostart }"
+    <section id="key-section" class="anx-panel">
+      <div class="anx-panel__head">
+        <div>
+          <h2><Icon name="shield" :size="15" /> ssh-agent</h2>
+          <p>{{ agent?.label || (loading ? '检测中…' : loadError ? '无法获取 agent 状态' : '未知') }}</p>
+        </div>
+        <div class="anx-panel__head-actions">
+          <label class="anx-switch">
+            <input
+              type="checkbox"
+              :checked="!!agent?.autostart"
               :disabled="agentBusy === 'autostart'"
-              @click="toggleAutostart"
-            >
-              <span class="knob" />
-            </button>
+              @change="toggleAutostart"
+            />
+            <span class="anx-switch__track" />
+            <span class="anx-t-xs anx-t-muted">开机自启</span>
           </label>
-          <button class="btn sm" :disabled="agentBusy === 'toggle'" @click="toggleAgent">
-            <span v-if="agentBusy === 'toggle'" class="spin" />
+          <button class="anx-btn anx-btn--sm" :disabled="agentBusy === 'toggle'" @click="toggleAgent">
+            <span v-if="agentBusy === 'toggle'" class="anx-btn__spinner" />
             {{ agent?.running ? '停止' : '启动' }}
           </button>
         </div>
       </div>
 
-      <div class="agent-body">
-        <div class="agent-status">
-          <span class="as-dot" :class="agent?.running ? (agent.count ? 'ok' : 'warn') : 'idle'" />
-          <div class="as-txt">
-            <strong>{{ agent?.label || (loading ? '检测中…' : loadError ? '无法获取 agent 状态' : '未知') }}</strong>
-            <span v-if="agent?.sock" class="as-sock">{{ agent.sock }}</span>
+      <div class="anx-panel__body kh-agent">
+        <div class="kh-agent__status">
+          <span
+            class="anx-dot"
+            :class="agent?.running ? (agent.count ? 'anx-dot--ok' : 'anx-dot--warn') : 'anx-dot--idle'"
+          />
+          <div class="kh-grow">
+            <strong>{{ agent?.label || '未知' }}</strong>
+            <div v-if="agent?.sock" class="anx-t-mono anx-t-muted">{{ agent.sock }}</div>
           </div>
         </div>
 
         <!-- 已加载密钥 -->
-        <div v-if="agent?.keys?.length" class="agent-keys">
-          <div class="ak-head">
-            <span>已加载的密钥</span>
-            <button class="btn ghost xs" :disabled="agentBusy === 'clear'" @click="agentClear">
+        <div v-if="agent?.keys?.length" class="kh-agent__keys">
+          <div class="kh-row-between">
+            <span class="anx-t-sm anx-t-strong">已加载的密钥</span>
+            <button class="anx-btn anx-btn--ghost anx-btn--sm" :disabled="agentBusy === 'clear'" @click="agentClear">
               全部清空
             </button>
           </div>
-          <ul>
-            <li v-for="(k, i) in agent.keys" :key="i">
-              <AppIcon name="key" :size="13" />
-              <code>{{ k.fingerprint }}</code>
-              <span class="ak-cmt">{{ k.comment }}</span>
-              <span class="tag sm">{{ k.algorithm || 'SSH' }}</span>
+          <ul class="kh-list">
+            <li v-for="(k, i) in agent.keys" :key="i" class="kh-list__item kh-agent__key">
+              <Icon name="key" :size="14" />
+              <code class="kh-agent__fp">{{ k.fingerprint }}</code>
+              <span class="anx-t-xs anx-t-muted kh-grow">{{ k.comment }}</span>
+              <span class="anx-tag">{{ k.algorithm || 'SSH' }}</span>
             </li>
           </ul>
         </div>
 
         <!-- 未加载：给出可加入的密钥 -->
-        <div v-else-if="agent?.running" class="agent-empty">
-          <p>agent 正在运行，但还没有加载任何密钥。</p>
-          <div v-if="keys.length" class="agent-add">
-            <span>快速加入：</span>
+        <div v-else-if="agent?.running" class="kh-agent__empty">
+          <p class="anx-t-sm anx-t-muted">agent 正在运行，但还没有加载任何密钥。</p>
+          <div v-if="keys.length" class="kh-actions">
+            <span class="anx-t-xs anx-t-muted">快速加入：</span>
             <button
               v-for="k in keys.filter((x) => !x.hasPassphrase).slice(0, 4)"
               :key="k.filename"
-              class="btn xs"
+              class="anx-btn anx-btn--ghost anx-btn--sm"
               :disabled="agentBusy === k.filename"
               @click="agentAddKey(k)"
             >
-              <span v-if="agentBusy === k.filename" class="spin" />
+              <span v-if="agentBusy === k.filename" class="anx-btn__spinner" />
               {{ k.filename }}
             </button>
-            <span v-if="!keys.filter((x) => !x.hasPassphrase).length" class="all-pass">
-              所有密钥都带口令，需在系统终端用 <code>ssh-add</code> 手动加载
+            <span v-if="!keys.filter((x) => !x.hasPassphrase).length" class="anx-t-xs anx-t-muted">
+              所有密钥都带口令，需在系统终端用 <code class="kh-code-inline">ssh-add</code> 手动加载
             </span>
           </div>
         </div>
 
-        <div v-else class="agent-empty">
-          <p>agent 未运行。启动后，带口令的密钥在 git push 等场景才能自动认证。</p>
-          <button class="btn primary sm" :disabled="agentBusy === 'toggle'" @click="toggleAgent">
+        <div v-else class="kh-agent__empty">
+          <p class="anx-t-sm anx-t-muted">
+            agent 未运行。启动后，带口令的密钥在 git push 等场景才能自动认证。
+          </p>
+          <button class="anx-btn anx-btn--primary anx-btn--sm" :disabled="agentBusy === 'toggle'" @click="toggleAgent">
             启动 ssh-agent
           </button>
         </div>
       </div>
-    </div>
+    </section>
 
     <!-- ══════ 安全策略 ══════ -->
-    <div class="card policy-card">
-      <div class="card-head">
-        <span class="ch-title"><AppIcon name="settings" :size="14" /> 安全策略</span>
-        <span class="meta">与设置页同步</span>
+    <section class="anx-panel">
+      <div class="anx-panel__head">
+        <div>
+          <h2><Icon name="sliders" :size="15" /> 安全策略</h2>
+          <p>与设置页同步</p>
+        </div>
       </div>
-      <ul class="policy-list">
-        <li>
-          <div class="pl-txt">
-            <strong>自动修复新密钥权限</strong>
-            <p>生成密钥后立即设置为 600，避免 OpenSSH 拒绝加载</p>
-          </div>
-          <button
-            class="switch"
-            :class="{ on: store.rawPrefs.autoFixPerms }"
-            :disabled="savingPref === 'autoFixPerms'"
-            @click="setPref('autoFixPerms', !store.rawPrefs.autoFixPerms)"
-          >
-            <span class="knob" />
-          </button>
-        </li>
-        <li>
-          <div class="pl-txt">
-            <strong>保存 config 前自动备份</strong>
-            <p>每次修改 config 前留一份快照，误改可一键回滚</p>
-          </div>
-          <button
-            class="switch"
-            :class="{ on: store.rawPrefs.autoBackupConfig }"
-            :disabled="savingPref === 'autoBackupConfig'"
-            @click="setPref('autoBackupConfig', !store.rawPrefs.autoBackupConfig)"
-          >
-            <span class="knob" />
-          </button>
-        </li>
-        <li>
-          <div class="pl-txt">
-            <strong>记录审计日志</strong>
-            <p>对密钥读取、删除、回滚等敏感操作留痕，便于事后追溯</p>
-          </div>
-          <button
-            class="switch"
-            :class="{ on: store.rawPrefs.auditEnabled }"
-            :disabled="savingPref === 'auditEnabled'"
-            @click="setPref('auditEnabled', !store.rawPrefs.auditEnabled)"
-          >
-            <span class="knob" />
-          </button>
-        </li>
-        <li>
-          <div class="pl-txt">
-            <strong>发起连接前二次确认</strong>
-            <p>墨钥默认不联网；开启后每次测试都会先弹窗确认</p>
-          </div>
-          <button
-            class="switch"
-            :class="{ on: store.rawPrefs.confirmBeforeConnect }"
-            :disabled="savingPref === 'confirmBeforeConnect'"
-            @click="setPref('confirmBeforeConnect', !store.rawPrefs.confirmBeforeConnect)"
-          >
-            <span class="knob" />
-          </button>
-        </li>
-        <li>
-          <div class="pl-txt">
-            <strong>删除密钥需输入文件名确认</strong>
-            <p>防止误点造成的不可逆数据丢失</p>
-          </div>
-          <button
-            class="switch"
-            :class="{ on: store.rawPrefs.confirmDeleteTyped }"
-            :disabled="savingPref === 'confirmDeleteTyped'"
-            @click="setPref('confirmDeleteTyped', !store.rawPrefs.confirmDeleteTyped)"
-          >
-            <span class="knob" />
-          </button>
-        </li>
-        <li class="locked">
-          <div class="pl-txt">
-            <strong>
-              强制使用系统密码学随机源
-              <AppIcon name="lock" :size="12" />
-            </strong>
-            <p>密钥生成始终由系统 CSPRNG 提供熵，该选项不可关闭</p>
-          </div>
-          <button class="switch on" disabled>
-            <span class="knob" />
-          </button>
-        </li>
-      </ul>
-    </div>
+      <div class="anx-panel__body">
+        <ul class="kh-list">
+          <li class="kh-list__item">
+            <div class="kh-list__body">
+              <div class="kh-list__title">自动修复新密钥权限</div>
+              <p class="kh-list__text">生成密钥后立即设置为 600，避免 OpenSSH 拒绝加载</p>
+            </div>
+            <label class="anx-switch">
+              <input
+                type="checkbox"
+                :checked="!!store.rawPrefs.autoFixPerms"
+                :disabled="savingPref === 'autoFixPerms'"
+                @change="setPref('autoFixPerms', !store.rawPrefs.autoFixPerms)"
+              />
+              <span class="anx-switch__track" />
+            </label>
+          </li>
+          <li class="kh-list__item">
+            <div class="kh-list__body">
+              <div class="kh-list__title">保存 config 前自动备份</div>
+              <p class="kh-list__text">每次修改 config 前留一份快照，误改可一键回滚</p>
+            </div>
+            <label class="anx-switch">
+              <input
+                type="checkbox"
+                :checked="!!store.rawPrefs.autoBackupConfig"
+                :disabled="savingPref === 'autoBackupConfig'"
+                @change="setPref('autoBackupConfig', !store.rawPrefs.autoBackupConfig)"
+              />
+              <span class="anx-switch__track" />
+            </label>
+          </li>
+          <li class="kh-list__item">
+            <div class="kh-list__body">
+              <div class="kh-list__title">记录审计日志</div>
+              <p class="kh-list__text">对密钥读取、删除、回滚等敏感操作留痕，便于事后追溯</p>
+            </div>
+            <label class="anx-switch">
+              <input
+                type="checkbox"
+                :checked="!!store.rawPrefs.auditEnabled"
+                :disabled="savingPref === 'auditEnabled'"
+                @change="setPref('auditEnabled', !store.rawPrefs.auditEnabled)"
+              />
+              <span class="anx-switch__track" />
+            </label>
+          </li>
+          <li class="kh-list__item">
+            <div class="kh-list__body">
+              <div class="kh-list__title">发起连接前二次确认</div>
+              <p class="kh-list__text">墨钥默认不联网；开启后每次测试都会先弹窗确认</p>
+            </div>
+            <label class="anx-switch">
+              <input
+                type="checkbox"
+                :checked="!!store.rawPrefs.confirmBeforeConnect"
+                :disabled="savingPref === 'confirmBeforeConnect'"
+                @change="setPref('confirmBeforeConnect', !store.rawPrefs.confirmBeforeConnect)"
+              />
+              <span class="anx-switch__track" />
+            </label>
+          </li>
+          <li class="kh-list__item">
+            <div class="kh-list__body">
+              <div class="kh-list__title">删除密钥需输入文件名确认</div>
+              <p class="kh-list__text">防止误点造成的不可逆数据丢失</p>
+            </div>
+            <label class="anx-switch">
+              <input
+                type="checkbox"
+                :checked="!!store.rawPrefs.confirmDeleteTyped"
+                :disabled="savingPref === 'confirmDeleteTyped'"
+                @change="setPref('confirmDeleteTyped', !store.rawPrefs.confirmDeleteTyped)"
+              />
+              <span class="anx-switch__track" />
+            </label>
+          </li>
+          <li class="kh-list__item">
+            <div class="kh-list__body">
+              <div class="kh-list__title">
+                强制使用系统密码学随机源
+                <span class="anx-badge anx-badge--ok"><Icon name="lock" :size="12" /> 已强制</span>
+              </div>
+              <p class="kh-list__text">密钥生成始终由系统 CSPRNG 提供熵，该选项不可关闭</p>
+            </div>
+            <label class="anx-switch">
+              <input type="checkbox" checked disabled />
+              <span class="anx-switch__track" />
+            </label>
+          </li>
+        </ul>
+      </div>
+    </section>
 
     <!-- ══════ 加密备份 ══════ -->
-    <div class="card backup-card">
-      <div class="card-head">
-        <span class="ch-title"><AppIcon name="clock" :size="14" /> 加密备份</span>
-        <div class="head-right">
-          <span class="bk-hint">AES-256-GCM · Argon2id 派生</span>
-          <button class="btn primary sm" @click="openBackup">
-            <AppIcon name="plus" :size="13" /> 创建备份
+    <section class="anx-panel">
+      <div class="anx-panel__head">
+        <div>
+          <h2><Icon name="clock" :size="15" /> 加密备份</h2>
+          <p>AES-256-GCM · Argon2id 派生</p>
+        </div>
+        <div class="anx-panel__head-actions">
+          <button class="anx-btn anx-btn--primary anx-btn--sm" @click="openBackup">
+            <Icon name="plus" :size="14" /> 创建备份
           </button>
         </div>
       </div>
-
-      <div v-if="!backups.length" class="mini-empty big">
-        <AppIcon name="clock" :size="22" />
-        <span>还没有备份。建议至少创建一份加密备份，防止误删或硬盘故障。</span>
-        <button class="btn primary sm" @click="openBackup">立即创建</button>
+      <div class="anx-panel__body anx-panel__body--tight">
+        <div v-if="!backups.length" class="anx-empty kh-empty-inline">
+          <div class="anx-empty__icon"><Icon name="clock" :size="22" /></div>
+          <p class="anx-empty__title">还没有备份</p>
+          <p class="anx-empty__text">建议至少创建一份加密备份，防止误删或硬盘故障。</p>
+          <div class="anx-empty__actions">
+            <button class="anx-btn anx-btn--primary anx-btn--sm" @click="openBackup">立即创建</button>
+          </div>
+        </div>
+        <div v-else class="anx-table-wrap">
+          <table class="anx-table">
+            <thead>
+              <tr>
+                <th>文件名</th>
+                <th>创建时间</th>
+                <th>大小</th>
+                <th>加密</th>
+                <th class="is-num">操作</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-for="b in backups" :key="b.name">
+                <td>
+                  <div class="anx-cell-main">
+                    <Icon name="file" :size="15" class="anx-t-muted" />
+                    <code class="kh-mono">{{ b.name }}</code>
+                  </div>
+                </td>
+                <td><code class="kh-mono kh-t-xs">{{ fmtTime(b.createdAt) }}</code></td>
+                <td><code class="kh-mono kh-t-xs">{{ b.sizeLabel }}</code></td>
+                <td>
+                  <span class="anx-badge" :class="b.encrypted ? 'anx-badge--ok' : 'anx-badge--danger'">
+                    {{ b.encrypted ? '已加密' : '明文' }}
+                  </span>
+                </td>
+                <td class="is-num">
+                  <div class="anx-cell-actions">
+                    <button class="anx-btn anx-btn--ghost anx-btn--sm" @click="askRestore(b)">恢复</button>
+                    <button
+                      class="anx-iconbtn kh-danger-text"
+                      title="删除备份"
+                      aria-label="删除备份"
+                      @click="deleteBackup(b)"
+                    >
+                      <Icon name="trash" :size="15" />
+                    </button>
+                  </div>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
       </div>
-
-      <table v-else class="ds-table">
-        <thead>
-          <tr>
-            <th>文件名</th>
-            <th>创建时间</th>
-            <th>大小</th>
-            <th>加密</th>
-            <th class="ta-r">操作</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr v-for="b in backups" :key="b.name">
-            <td>
-              <div class="bk-name">
-                <AppIcon name="file" :size="13" />
-                <code>{{ b.name }}</code>
-              </div>
-            </td>
-            <td><code class="mono-sm">{{ fmtTime(b.createdAt) }}</code></td>
-            <td><code class="mono-sm">{{ b.sizeLabel }}</code></td>
-            <td>
-              <span class="pill" :class="b.encrypted ? 'ok' : 'danger'">
-                {{ b.encrypted ? '已加密' : '明文' }}
-              </span>
-            </td>
-            <td class="ta-r">
-              <div class="row-actions">
-                <button class="btn xs" @click="askRestore(b)">恢复</button>
-                <button class="btn xs danger-text" @click="deleteBackup(b)">
-                  <AppIcon name="trash" :size="12" />
-                </button>
-              </div>
-            </td>
-          </tr>
-        </tbody>
-      </table>
-    </div>
+    </section>
 
     <!-- ══════ 审计日志 ══════ -->
-    <div class="card audit-card">
-      <div class="card-head">
-        <span class="ch-title"><AppIcon name="file" :size="14" /> 审计日志</span>
-        <div class="head-right">
-          <span v-if="auditStat" class="audit-stat">
+    <section class="anx-panel">
+      <div class="anx-panel__head">
+        <div>
+          <h2><Icon name="file-text" :size="15" /> 审计日志</h2>
+          <p v-if="auditStat">
             共 {{ auditStat.total }} 条 · 今日 {{ auditStat.today }} 条
-            <template v-if="auditStat.failed">
-              · <span class="fail-count">{{ auditStat.failed }} 条失败</span>
-            </template>
-          </span>
-          <button class="btn ghost xs" @click="pruneAudit">清理过期</button>
-          <button class="btn ghost xs" @click="exportCsv">
-            <AppIcon name="download" :size="13" /> 导出 CSV
+            <span v-if="auditStat.failed" class="kh-danger-text">· {{ auditStat.failed }} 条失败</span>
+          </p>
+        </div>
+        <div class="anx-panel__head-actions">
+          <button class="anx-btn anx-btn--ghost anx-btn--sm" @click="pruneAudit">清理过期</button>
+          <button class="anx-btn anx-btn--ghost anx-btn--sm" @click="exportCsv">
+            <Icon name="download" :size="14" /> 导出 CSV
           </button>
-          <button class="btn ghost xs danger-text" @click="clearAuditOpen = true">清空</button>
+          <button class="anx-btn anx-btn--danger-quiet anx-btn--sm" @click="clearAuditOpen = true">清空</button>
         </div>
       </div>
 
-      <!-- 筛选 -->
-      <div class="audit-filters">
-        <div class="search sm">
-          <AppIcon name="search" :size="14" />
-          <input
-            v-model="auditQuery.keyword"
-            type="text"
-            placeholder="搜索描述或对象…"
-            @input="scheduleAudit"
+      <div class="anx-panel__body">
+        <div class="kh-audit-filters">
+          <div class="kh-searchfield kh-grow">
+            <Icon name="search" :size="14" />
+            <input
+              v-model="auditQuery.keyword"
+              class="anx-input"
+              type="text"
+              placeholder="搜索描述或对象…"
+              aria-label="搜索审计日志"
+              @input="scheduleAudit"
+            />
+          </div>
+          <SelectMenu
+            v-model="auditQuery.category"
+            :options="categoryOptions"
+            aria-label="按类别筛选"
+            style="width: 150px"
+            @update:model-value="loadAudit"
+          />
+          <SelectMenu
+            v-model="auditQuery.result"
+            :options="resultOptions"
+            aria-label="按结果筛选"
+            style="width: 140px"
+            @update:model-value="loadAudit"
           />
         </div>
-        <select v-model="auditQuery.category" class="select sm" @change="loadAudit">
-          <option v-for="c in categoryOptions" :key="c.value" :value="c.value">{{ c.label }}</option>
-        </select>
-        <select v-model="auditQuery.result" class="select sm" @change="loadAudit">
-          <option value="">全部结果</option>
-          <option value="ok">成功</option>
-          <option value="fail">失败</option>
-          <option value="warn">警告</option>
-        </select>
-      </div>
 
-      <div v-if="auditLoading" class="mini-empty"><span class="spin" /> 读取中…</div>
-      <div v-else-if="!auditList.length" class="mini-empty big">
-        <AppIcon name="file" :size="20" />
-        <span>没有符合条件的审计记录</span>
-      </div>
-      <div v-else class="audit-list">
-        <div v-for="e in auditList" :key="e.seq" class="audit-row" :class="e.result">
-          <span class="ar-time">{{ fmtTime(e.at) }}</span>
-          <span class="tag sm cat">{{ catLabel(e.category) }}</span>
-          <span class="ar-msg">{{ e.message }}</span>
-          <code v-if="e.target" class="ar-target">{{ e.target }}</code>
-          <span class="pill sm" :class="e.result === 'ok' ? 'ok' : e.result === 'fail' ? 'danger' : 'warn'">
-            {{ resultLabel(e.result) }}
-          </span>
+        <div v-if="auditLoading" class="anx-empty kh-empty-inline">
+          <span class="kh-spin kh-spin--lg" />
+          <p class="anx-empty__title">读取中…</p>
+        </div>
+        <div v-else-if="!auditList.length" class="anx-empty kh-empty-inline">
+          <div class="anx-empty__icon"><Icon name="file-text" :size="22" /></div>
+          <p class="anx-empty__title">没有符合条件的审计记录</p>
+        </div>
+        <div v-else class="kh-audit-list">
+          <div v-for="e in auditList" :key="e.seq" class="kh-audit-row">
+            <span class="kh-audit-row__time">{{ fmtTime(e.at) }}</span>
+            <span class="anx-tag">{{ catLabel(e.category) }}</span>
+            <span class="kh-audit-row__msg">{{ e.message }}</span>
+            <code v-if="e.target" class="kh-audit-row__target">{{ e.target }}</code>
+            <span
+              class="anx-badge"
+              :class="e.result === 'ok' ? 'anx-badge--ok' : e.result === 'fail' ? 'anx-badge--danger' : 'anx-badge--warn'"
+            >
+              {{ resultLabel(e.result) }}
+            </span>
+          </div>
         </div>
       </div>
-    </div>
+    </section>
 
     <!-- ══════ 创建备份弹窗 ══════ -->
     <AppModal v-model="backupOpen" title="创建加密备份" wide>
-      <div class="form">
-        <div v-if="backupPreview" class="bk-preview">
-          <div class="bp-stat">
+      <div class="kh-form">
+        <div v-if="backupPreview" class="kh-backup-preview">
+          <div class="kh-actions">
             <span><b>{{ backupPreview.count }}</b> 个文件</span>
             <span><b>{{ backupPreview.sizeLabel }}</b> 未压缩</span>
-            <span v-if="backupPreview.hasPrivate" class="bp-warn">
-              <AppIcon name="warning" :size="12" /> 含私钥
+            <span v-if="backupPreview.hasPrivate" class="kh-warn-text">
+              <Icon name="alert-triangle" :size="13" /> 含私钥
             </span>
           </div>
-          <div class="bp-files">
+          <div class="kh-backup-files">
             <code v-for="(f, i) in backupPreview.files.slice(0, 12)" :key="i">{{ f }}</code>
-            <span v-if="backupPreview.files.length > 12" class="bp-more">
+            <span v-if="backupPreview.files.length > 12" class="kh-fine">
               等 {{ backupPreview.files.length }} 个
             </span>
           </div>
         </div>
 
-        <div class="field">
-          <label>备份口令 <span class="req">*</span></label>
-          <div class="pass-wrap">
+        <div class="anx-field kh-field">
+          <label class="anx-field__label" for="backup-pass">备份口令 <span class="anx-req">*</span></label>
+          <div class="kh-pass">
             <input
+              id="backup-pass"
               v-model="backupForm.passphrase"
               :type="showBackupPass ? 'text' : 'password'"
-              class="input"
+              class="anx-input"
               placeholder="用于加密备份文件，请务必牢记"
               autocomplete="new-password"
             />
-            <button class="eye" @click="showBackupPass = !showBackupPass">
-              <AppIcon :name="showBackupPass ? 'eyeOff' : 'eye'" :size="14" />
+            <button
+              type="button"
+              class="anx-input-wrap__action"
+              :aria-label="showBackupPass ? '隐藏口令' : '显示口令'"
+              @click="showBackupPass = !showBackupPass"
+            >
+              <Icon :name="showBackupPass ? 'eye-off' : 'eye'" :size="16" />
             </button>
           </div>
-          <p v-if="backupPassIssue" class="hint-row danger-text">{{ backupPassIssue }}</p>
+          <p v-if="backupPassIssue" class="anx-field__error">{{ backupPassIssue }}</p>
         </div>
 
-        <div class="field">
-          <label>确认口令 <span class="req">*</span></label>
-          <input
-            v-model="backupForm.confirm"
-            :type="showBackupPass ? 'text' : 'password'"
-            class="input"
-            autocomplete="new-password"
-          />
-        </div>
+        <FieldInput
+          v-model="backupForm.confirm"
+          label="确认口令"
+          required
+          :type="showBackupPass ? 'text' : 'password'"
+          autocomplete="new-password"
+        />
+        <FieldInput v-model="backupForm.label" label="备注（可选）" placeholder="例如：换机前" />
 
-        <div class="field">
-          <label>备注（可选）</label>
-          <input v-model="backupForm.label" type="text" class="input" placeholder="例如：换机前" />
-        </div>
-
-        <div class="banner danger sm">
-          <AppIcon name="warning" :size="14" />
-          <div>
-            <strong>口令一旦遗失，备份将无法解密</strong>
-            <p>墨钥不保存备份口令，也无法帮你找回。请记录在密码管理器中。</p>
-          </div>
-        </div>
+        <AlertBox
+          tone="danger"
+          title="口令一旦遗失，备份将无法解密"
+          text="墨钥不保存备份口令，也无法帮你找回。请记录在密码管理器中。"
+        />
       </div>
       <template #footer>
-        <button class="btn ghost" @click="backupOpen = false">取消</button>
-        <button class="btn primary" :disabled="!canBackup" @click="doBackup">
-          <span v-if="creating" class="spin" />
+        <button class="anx-btn anx-btn--ghost" @click="backupOpen = false">取消</button>
+        <button class="anx-btn anx-btn--primary" :disabled="!canBackup" @click="doBackup">
+          <span v-if="creating" class="anx-btn__spinner" />
           创建备份
         </button>
       </template>
@@ -929,30 +1012,35 @@ onMounted(async () => {
 
     <!-- ══════ 恢复弹窗 ══════ -->
     <AppModal v-model="restoreOpen" title="恢复备份" :dismissable="false">
-      <div v-if="restoreTarget" class="confirm">
-        <div class="cf-icon warn"><AppIcon name="warning" :size="20" /></div>
-        <p class="cf-lead">
-          将从 <code>{{ restoreTarget.name }}</code> 恢复文件到 <code>~/.ssh</code>。
+      <div v-if="restoreTarget" class="kh-confirm">
+        <span class="kh-cf-icon kh-cf-icon--warn"><Icon name="alert-triangle" :size="20" /></span>
+        <p class="anx-t-sm">
+          将从 <code class="kh-code-inline">{{ restoreTarget.name }}</code> 恢复文件到
+          <code class="kh-code-inline">~/.ssh</code>。
         </p>
-        <ul class="cf-list">
+        <ul class="kh-check-list">
           <li>已存在的同名文件<strong>不会被覆盖</strong>（避免破坏当前可用配置）</li>
           <li>恢复前墨钥会先自动创建一份当前状态的备份</li>
           <li>恢复的密钥会自动重置为 600 权限</li>
         </ul>
-        <div v-if="restoreTarget.encrypted" class="field">
-          <label>备份口令 <span class="req">*</span></label>
-          <input v-model="restorePass" type="password" class="input" autocomplete="off" />
-        </div>
-        <p v-else class="cf-note">该备份未加密，可直接恢复。</p>
+        <FieldInput
+          v-if="restoreTarget.encrypted"
+          v-model="restorePass"
+          label="备份口令"
+          required
+          type="password"
+          autocomplete="off"
+        />
+        <p v-else class="anx-t-xs anx-t-muted">该备份未加密，可直接恢复。</p>
       </div>
       <template #footer>
-        <button class="btn ghost" @click="restoreOpen = false">取消</button>
+        <button class="anx-btn anx-btn--ghost" @click="restoreOpen = false">取消</button>
         <button
-          class="btn primary"
+          class="anx-btn anx-btn--primary"
           :disabled="restoring || (restoreTarget?.encrypted && !restorePass)"
           @click="doRestore"
         >
-          <span v-if="restoring" class="spin" />
+          <span v-if="restoring" class="anx-btn__spinner" />
           确认恢复
         </button>
       </template>
@@ -960,729 +1048,17 @@ onMounted(async () => {
 
     <!-- 清空审计确认 -->
     <AppModal v-model="clearAuditOpen" title="清空审计日志" :dismissable="false">
-      <div class="confirm">
-        <div class="cf-icon danger"><AppIcon name="trash" :size="20" /></div>
-        <p class="cf-lead">将删除全部审计记录，此操作不可撤销。</p>
-        <p class="cf-note">
+      <div class="kh-confirm">
+        <span class="kh-cf-icon kh-cf-icon--danger"><Icon name="trash" :size="20" /></span>
+        <p class="anx-t-sm">将删除全部审计记录，此操作不可撤销。</p>
+        <p class="anx-t-xs anx-t-muted">
           审计日志是排查安全事件的唯一线索。建议先导出 CSV 存档，再执行清空。
         </p>
       </div>
       <template #footer>
-        <button class="btn ghost" @click="clearAuditOpen = false">取消</button>
-        <button class="btn danger" @click="doClearAudit">确认清空</button>
+        <button class="anx-btn anx-btn--ghost" @click="clearAuditOpen = false">取消</button>
+        <button class="anx-btn anx-btn--danger" @click="doClearAudit">确认清空</button>
       </template>
     </AppModal>
   </div>
 </template>
-
-<style scoped>
-.sec {
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
-}
-
-/* 顶部两列 */
-.hero-grid {
-  display: grid;
-  grid-template-columns: 320px minmax(0, 1fr);
-  gap: 16px;
-  align-items: start;
-}
-@media (max-width: 1080px) {
-  .hero-grid {
-    grid-template-columns: 1fr;
-  }
-}
-
-/* 评分卡 */
-.score-card {
-  padding: 20px;
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-.sc-label {
-  font-size: 11px;
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-  color: var(--fg-faint);
-  font-family: var(--font-mono);
-}
-.sc-score {
-  display: flex;
-  align-items: baseline;
-  gap: 4px;
-  margin: 6px 0 2px;
-}
-.sc-score .num {
-  font-family: var(--font-mono);
-  font-size: 42px;
-  font-weight: 700;
-  line-height: 1;
-  color: var(--fg);
-  letter-spacing: -0.02em;
-}
-.score-card.ok .sc-score .num {
-  color: var(--success-ink);
-}
-.score-card.warn .sc-score .num {
-  color: var(--warn);
-}
-.score-card.danger .sc-score .num {
-  color: var(--danger);
-}
-.sc-score .max {
-  font-family: var(--font-mono);
-  font-size: 15px;
-  color: var(--fg-faint);
-}
-.sc-level {
-  display: flex;
-  align-items: center;
-  gap: 9px;
-  margin-bottom: 16px;
-}
-.sc-level .desc {
-  font-size: 11.5px;
-  color: var(--fg-muted);
-}
-.sc-bars {
-  display: flex;
-  flex-direction: column;
-  gap: 9px;
-  padding-top: 14px;
-  border-top: 1px solid var(--border);
-}
-.bar-row {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-}
-.bl {
-  font-size: 11.5px;
-  color: var(--fg-muted);
-  width: 44px;
-  flex: 0 0 auto;
-}
-.bar {
-  flex: 1;
-  height: 5px;
-  background: var(--surface-warm);
-  border-radius: 3px;
-  overflow: hidden;
-}
-.fill {
-  display: block;
-  height: 100%;
-  border-radius: 3px;
-  transition: width 0.4s ease;
-}
-.fill.ok {
-  background: var(--success);
-}
-.fill.warn {
-  background: var(--warn);
-}
-.fill.danger {
-  background: var(--danger);
-}
-.bv {
-  font-family: var(--font-mono);
-  font-size: 11px;
-  color: var(--fg-faint);
-  width: 26px;
-  text-align: right;
-  flex: 0 0 auto;
-}
-
-/* 体检 */
-.check-card {
-  padding: 0;
-  overflow: hidden;
-}
-.card-head {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 13px 16px;
-  border-bottom: 1px solid var(--border);
-  gap: 12px;
-  flex-wrap: wrap;
-}
-.ch-title {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  font-size: 12.5px;
-  font-weight: 600;
-  color: var(--fg);
-  flex: 0 0 auto;
-}
-.head-right {
-  display: flex;
-  align-items: center;
-  gap: 9px;
-  flex-wrap: wrap;
-}
-.check-list {
-  list-style: none;
-  padding: 12px;
-  margin: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-.check-row {
-  display: flex;
-  align-items: flex-start;
-  gap: 11px;
-  padding: 11px 12px;
-  border-radius: var(--radius-sm);
-  border: 1px solid var(--border);
-  background: var(--surface-warm);
-}
-.check-row.error {
-  border-color: color-mix(in srgb, var(--danger) 28%, var(--border));
-  background: color-mix(in srgb, var(--danger) 3%, var(--surface));
-}
-.check-row.warn {
-  border-color: color-mix(in srgb, var(--warn) 28%, var(--border));
-  background: color-mix(in srgb, var(--warn) 3%, var(--surface));
-}
-.check-row.ok {
-  border-color: color-mix(in srgb, var(--success) 22%, var(--border));
-}
-.check-row.unknown {
-  border-color: var(--border-soft);
-  background: var(--surface);
-}
-.ck-icon {
-  width: 30px;
-  height: 30px;
-  border-radius: 9px;
-  display: grid;
-  place-items: center;
-  background: var(--surface);
-  color: var(--fg-muted);
-  flex: 0 0 auto;
-}
-.check-row.ok .ck-icon {
-  background: var(--success-soft);
-  color: var(--success-ink);
-}
-.check-row.error .ck-icon {
-  background: var(--danger-soft);
-  color: var(--danger);
-}
-.check-row.warn .ck-icon {
-  background: var(--warn-soft);
-  color: var(--warn);
-}
-.ck-body {
-  flex: 1;
-  min-width: 0;
-}
-.ck-top {
-  display: flex;
-  align-items: center;
-  gap: 9px;
-  margin-bottom: 3px;
-  flex-wrap: wrap;
-}
-.ck-top strong {
-  font-size: 12.5px;
-  color: var(--fg);
-}
-.ck-detail {
-  font-size: 11.5px;
-  color: var(--fg-muted);
-  margin: 0 0 2px;
-  line-height: 1.6;
-}
-.ck-expect {
-  font-size: 10.5px;
-  color: var(--fg-faint);
-  margin: 0;
-  font-family: var(--font-mono);
-}
-.check-row > .btn {
-  flex: 0 0 auto;
-  margin-top: 2px;
-}
-
-/* agent */
-.agent-card {
-  padding: 0;
-  overflow: hidden;
-}
-.switch-row {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  font-size: 12px;
-  color: var(--fg-muted);
-}
-.agent-body {
-  padding: 16px;
-  display: flex;
-  flex-direction: column;
-  gap: 14px;
-}
-.agent-status {
-  display: flex;
-  align-items: center;
-  gap: 11px;
-}
-.as-dot {
-  width: 10px;
-  height: 10px;
-  border-radius: 50%;
-  flex: 0 0 auto;
-}
-.as-dot.ok {
-  background: var(--success);
-  box-shadow: 0 0 0 4px color-mix(in srgb, var(--success) 18%, transparent);
-}
-.as-dot.warn {
-  background: var(--warn);
-  box-shadow: 0 0 0 4px color-mix(in srgb, var(--warn) 18%, transparent);
-}
-.as-dot.idle {
-  background: var(--fg-faint);
-}
-.as-txt strong {
-  display: block;
-  font-size: 13px;
-  color: var(--fg);
-  margin-bottom: 2px;
-}
-.as-sock {
-  font-family: var(--font-mono);
-  font-size: 10.5px;
-  color: var(--fg-faint);
-  word-break: break-all;
-}
-
-.agent-keys,
-.agent-empty {
-  padding: 12px 13px;
-  background: var(--surface-warm);
-  border-radius: var(--radius-sm);
-}
-.ak-head {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-bottom: 9px;
-  font-size: 11px;
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-  color: var(--fg-faint);
-  font-family: var(--font-mono);
-}
-.agent-keys ul {
-  list-style: none;
-  padding: 0;
-  margin: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
-.agent-keys li {
-  display: flex;
-  align-items: center;
-  gap: 9px;
-  font-size: 12px;
-  color: var(--fg-muted);
-}
-.agent-keys li :deep(svg) {
-  color: var(--success);
-  flex: 0 0 auto;
-}
-.agent-keys code {
-  font-family: var(--font-mono);
-  font-size: 11px;
-  color: var(--fg);
-}
-.ak-cmt {
-  flex: 1;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  font-size: 11px;
-  color: var(--fg-faint);
-}
-.agent-empty p {
-  font-size: 12.5px;
-  color: var(--fg-muted);
-  margin: 0 0 10px;
-  line-height: 1.6;
-}
-.agent-add {
-  display: flex;
-  align-items: center;
-  gap: 7px;
-  flex-wrap: wrap;
-  font-size: 12px;
-  color: var(--fg-faint);
-}
-.all-pass {
-  font-size: 11.5px;
-  color: var(--fg-faint);
-}
-.all-pass code {
-  font-family: var(--font-mono);
-  background: var(--surface);
-  padding: 1px 5px;
-  border-radius: 5px;
-  color: var(--accent);
-}
-
-/* 策略 */
-.policy-card {
-  padding: 0;
-  overflow: hidden;
-}
-.policy-list {
-  list-style: none;
-  padding: 4px 0;
-  margin: 0;
-}
-.policy-list li {
-  display: flex;
-  align-items: center;
-  gap: 16px;
-  padding: 13px 16px;
-  border-bottom: 1px solid var(--border);
-}
-.policy-list li:last-child {
-  border-bottom: none;
-}
-.pl-txt {
-  flex: 1;
-  min-width: 0;
-}
-.pl-txt strong {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  font-size: 12.5px;
-  color: var(--fg);
-  margin-bottom: 3px;
-}
-.pl-txt p {
-  font-size: 11.5px;
-  color: var(--fg-muted);
-  margin: 0;
-  line-height: 1.6;
-}
-.policy-list li.locked {
-  background: var(--surface-warm);
-}
-.policy-list li.locked :deep(svg) {
-  color: var(--success);
-}
-
-/* 备份卡 */
-.backup-card {
-  padding: 0;
-  overflow: hidden;
-}
-.bk-hint {
-  font-size: 10.5px;
-  color: var(--fg-faint);
-  font-family: var(--font-mono);
-}
-.bk-name {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-.bk-name code {
-  font-family: var(--font-mono);
-  font-size: 11.5px;
-  color: var(--fg);
-}
-.mono-sm {
-  font-family: var(--font-mono);
-  font-size: 11.5px;
-  color: var(--fg-muted);
-}
-.row-actions {
-  display: flex;
-  gap: 6px;
-  justify-content: flex-end;
-}
-.ta-r {
-  text-align: right;
-}
-
-/* 审计卡 */
-.audit-card {
-  padding: 0;
-  overflow: hidden;
-}
-.audit-stat {
-  font-size: 11.5px;
-  color: var(--fg-faint);
-  font-family: var(--font-mono);
-}
-.fail-count {
-  color: var(--danger);
-}
-.audit-filters {
-  display: flex;
-  gap: 9px;
-  padding: 12px 16px;
-  border-bottom: 1px solid var(--border);
-  flex-wrap: wrap;
-}
-.audit-filters .search {
-  flex: 1;
-  min-width: 200px;
-  height: 34px;
-  padding: 0 12px;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
-  color: var(--fg-faint);
-}
-.audit-filters .search input {
-  flex: 1;
-  border: none;
-  background: transparent;
-  outline: none;
-  font-size: 12.5px;
-  color: var(--fg);
-  font-family: inherit;
-}
-.select.sm {
-  height: 34px;
-  width: auto;
-  min-width: 110px;
-}
-.audit-list {
-  max-height: 420px;
-  overflow-y: auto;
-}
-.audit-row {
-  display: flex;
-  align-items: center;
-  gap: 11px;
-  padding: 9px 16px;
-  border-bottom: 1px solid var(--border);
-  font-size: 12px;
-}
-.audit-row:last-child {
-  border-bottom: none;
-}
-.audit-row:hover {
-  background: var(--surface-warm);
-}
-.audit-row.fail {
-  background: color-mix(in srgb, var(--danger) 3%, transparent);
-}
-.ar-time {
-  font-family: var(--font-mono);
-  font-size: 11px;
-  color: var(--fg-faint);
-  width: 138px;
-  flex: 0 0 auto;
-}
-.tag.sm {
-  font-size: 10px;
-  padding: 1px 6px;
-  flex: 0 0 auto;
-}
-.ar-msg {
-  flex: 1;
-  min-width: 0;
-  color: var(--fg-muted);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-.ar-target {
-  font-family: var(--font-mono);
-  font-size: 10.5px;
-  color: var(--fg-faint);
-  max-width: 160px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  flex: 0 0 auto;
-}
-.pill.sm {
-  font-size: 10px;
-  padding: 2px 7px;
-  flex: 0 0 auto;
-}
-
-/* 空态 */
-.mini-empty {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 9px;
-  padding: 28px 16px;
-  font-size: 12.5px;
-  color: var(--fg-faint);
-  text-align: center;
-}
-.mini-empty.big {
-  flex-direction: column;
-  padding: 42px 20px;
-}
-
-/* 表单 */
-.form {
-  display: flex;
-  flex-direction: column;
-  gap: 17px;
-}
-.field {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
-.field label {
-  font-size: 12.5px;
-  font-weight: 600;
-  color: var(--fg);
-}
-.req {
-  color: var(--danger);
-}
-.hint-row {
-  font-size: 11.5px;
-  color: var(--fg-faint);
-  margin: 0;
-  line-height: 1.6;
-}
-.danger-text {
-  color: var(--danger);
-}
-.pass-wrap {
-  position: relative;
-}
-.pass-wrap .input {
-  padding-right: 40px;
-}
-.eye {
-  position: absolute;
-  right: 10px;
-  top: 50%;
-  transform: translateY(-50%);
-  border: none;
-  background: transparent;
-  color: var(--fg-faint);
-  cursor: pointer;
-  display: grid;
-  place-items: center;
-}
-
-.bk-preview {
-  padding: 13px 14px;
-  background: var(--surface-warm);
-  border-radius: var(--radius-sm);
-}
-.bp-stat {
-  display: flex;
-  gap: 18px;
-  font-size: 12px;
-  color: var(--fg-muted);
-  margin-bottom: 10px;
-  flex-wrap: wrap;
-}
-.bp-stat b {
-  color: var(--fg);
-  font-family: var(--font-mono);
-}
-.bp-warn {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  color: var(--warn);
-}
-.bp-files {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-}
-.bp-files code {
-  font-family: var(--font-mono);
-  font-size: 10.5px;
-  padding: 2px 7px;
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: 6px;
-  color: var(--fg-muted);
-}
-.bp-more {
-  font-size: 10.5px;
-  color: var(--fg-faint);
-  align-self: center;
-}
-
-/* 确认弹窗 */
-.confirm {
-  display: flex;
-  flex-direction: column;
-  gap: 13px;
-}
-.cf-icon {
-  width: 46px;
-  height: 46px;
-  border-radius: 15px;
-  display: grid;
-  place-items: center;
-  align-self: flex-start;
-}
-.cf-icon.warn {
-  background: var(--warn-soft);
-  color: var(--warn);
-}
-.cf-icon.danger {
-  background: var(--danger-soft);
-  color: var(--danger);
-}
-.cf-lead {
-  font-size: 13.5px;
-  color: var(--fg);
-  margin: 0;
-  line-height: 1.7;
-}
-.cf-lead code {
-  font-family: var(--font-mono);
-  font-size: 12px;
-  background: var(--surface-warm);
-  padding: 1px 5px;
-  border-radius: 5px;
-  color: var(--accent);
-}
-.cf-list {
-  margin: 0;
-  padding-left: 18px;
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
-.cf-list li {
-  font-size: 12.5px;
-  color: var(--fg-muted);
-  line-height: 1.6;
-}
-.cf-note {
-  font-size: 12px;
-  color: var(--fg-muted);
-  line-height: 1.7;
-  margin: 0;
-  padding: 10px 12px;
-  background: var(--surface-warm);
-  border-radius: var(--radius-sm);
-}
-</style>

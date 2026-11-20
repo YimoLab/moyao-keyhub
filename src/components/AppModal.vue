@@ -1,17 +1,21 @@
 <script setup>
-import { onMounted, onBeforeUnmount, watch } from 'vue'
-import AppIcon from './AppIcon.vue'
+import { nextTick, onBeforeUnmount, ref, watch } from 'vue'
+import Icon from '../design/vue/ui/Icon.vue'
+import { isTopOverlay, nextOverlayId, popOverlay, pushOverlay } from '../lib/overlayStack.js'
 
 /**
- * 显隐由 v-model 控制（父组件传 v-model="xxxOpen"）。
- * 必须用 v-if 真正卸载根节点，否则全屏遮罩会常驻并拦截页面点击。
+ * 声明式弹窗（墨钥自有 API，视觉与行为对齐鉴枢设计系统）。
+ *
+ * - 结构落在 #overlay-layer 内：.anx-scrim + .anx-modal
+ * - 入场 / 离场沿用 --t 令牌；关闭时先播 is-closing 再卸载
+ * - ESC / 点击遮罩仅在 dismissable 时生效；wide 映射为 anx-modal--lg
  */
 const open = defineModel({ type: Boolean, default: false })
 
 const props = defineProps({
   title: { type: String, default: '' },
   wide: { type: Boolean, default: false },
-  /** 点击遮罩是否关闭；危险确认类操作应设为 false */
+  /** 点击遮罩 / ESC 是否关闭；危险确认类操作应设为 false */
   dismissable: { type: Boolean, default: true },
   /** 是否显示右上角关闭按钮 */
   closable: { type: Boolean, default: true },
@@ -19,54 +23,131 @@ const props = defineProps({
 
 const emit = defineEmits(['close'])
 
-/** X 关闭按钮：总是可关（点 X = 取消操作，安全）。是否显示由 closable 控制 */
+const visible = ref(open.value)
+const closing = ref(false)
+const rootEl = ref(null)
+let closeTimer = 0
+const overlayId = nextOverlayId()
+
+watch(open, (v) => {
+  clearTimeout(closeTimer)
+  if (v) {
+    closing.value = false
+    visible.value = true
+    nextTick(() => {
+      const target =
+        rootEl.value?.querySelector(
+          '[data-autofocus], a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'
+        ) || rootEl.value
+      try {
+        target?.focus()
+      } catch {
+        /* 元素不可聚焦时静默 */
+      }
+    })
+  } else if (visible.value) {
+    closing.value = true
+    closeTimer = setTimeout(() => {
+      visible.value = false
+      closing.value = false
+    }, 190)
+  }
+})
+
+/** X 关闭按钮：总是可关（点 X = 取消操作，安全） */
 function close() {
   open.value = false
-  // 兼容 @close 用法（如有）
   emit('close')
 }
 
-/** 遮罩 / ESC：dismissable=false 的二次确认弹窗不允许这样关闭，必须走按钮 */
+/** 遮罩 / ESC：dismissable=false 的二次确认弹窗不允许这样关闭 */
 function requestClose() {
-  if (props.dismissable) close()
+  if (props.dismissable && !closing.value) close()
 }
 
-// 弹窗打开时锁滚动，避免背后页面跟随滚动
-watch(open, (v) => {
-  document.body.style.overflow = v ? 'hidden' : ''
-})
-
-function onBackdrop(e) {
+function onScrim(e) {
   if (e.target === e.currentTarget) requestClose()
 }
 
 function onKey(e) {
-  if (e.key === 'Escape' && open.value) requestClose()
+  if (!isTopOverlay(overlayId)) return
+  if (e.key === 'Escape') requestClose()
+  if (e.key !== 'Tab' || !rootEl.value) return
+  const list = Array.from(
+    rootEl.value.querySelectorAll(
+      'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'
+    )
+  ).filter((el) => el.offsetParent !== null)
+  if (!list.length) return
+  const first = list[0]
+  const last = list[list.length - 1]
+  if (e.shiftKey && document.activeElement === first) {
+    e.preventDefault()
+    last.focus()
+  } else if (!e.shiftKey && document.activeElement === last) {
+    e.preventDefault()
+    first.focus()
+  }
 }
 
-onMounted(() => document.addEventListener('keydown', onKey))
-onBeforeUnmount(() => document.removeEventListener('keydown', onKey))
+// 打开期间接管 ESC / Tab 并锁背景滚动；关闭时按栈归还
+watch(visible, (v) => {
+  if (v) {
+    pushOverlay(overlayId)
+    document.addEventListener('keydown', onKey)
+  } else {
+    popOverlay(overlayId)
+    document.removeEventListener('keydown', onKey)
+  }
+}, { immediate: true })
+
+onBeforeUnmount(() => {
+  document.removeEventListener('keydown', onKey)
+  popOverlay(overlayId)
+  clearTimeout(closeTimer)
+})
 </script>
 
 <template>
-  <Teleport to="body">
-    <Transition name="modal-fade">
-      <div v-if="open" class="modal-wrap" role="dialog" aria-modal="true" @click="onBackdrop">
-        <div class="modal" :class="{ 'modal-wide': wide }">
-          <div v-if="title || $slots.head || closable" class="modal-head">
-            <span><slot name="head">{{ title }}</slot></span>
-            <button v-if="closable" class="icon-btn" aria-label="关闭" @click="close">
-              <AppIcon name="close" :width="1.8" />
-            </button>
+  <Teleport to="#overlay-layer">
+    <template v-if="visible">
+      <div
+        class="anx-scrim"
+        :class="{ 'is-closing': closing }"
+        data-scrim
+        @click="onScrim"
+      />
+      <div
+        ref="rootEl"
+        class="anx-modal"
+        :class="[{ 'anx-modal--lg': wide, 'is-closing': closing }]"
+        role="dialog"
+        aria-modal="true"
+        tabindex="-1"
+      >
+        <div v-if="title || $slots.head || closable" class="anx-modal__head">
+          <div class="anx-modal__head-text">
+            <h2 class="anx-modal__title">
+              <slot name="head">{{ title }}</slot>
+            </h2>
           </div>
-          <div class="modal-body">
-            <slot />
-          </div>
-          <div v-if="$slots.footer" class="modal-foot">
-            <slot name="footer" />
-          </div>
+          <button
+            v-if="closable"
+            type="button"
+            class="anx-iconbtn anx-modal__close"
+            aria-label="关闭"
+            @click="close"
+          >
+            <Icon name="close" :size="16" />
+          </button>
+        </div>
+        <div class="anx-modal__body">
+          <slot />
+        </div>
+        <div v-if="$slots.footer" class="anx-modal__foot">
+          <slot name="footer" />
         </div>
       </div>
-    </Transition>
+    </template>
   </Teleport>
 </template>

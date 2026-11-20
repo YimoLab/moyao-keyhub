@@ -55,14 +55,13 @@ function cdp(wsUrl) {
           expression: `(() => {
             const q = (s) => document.querySelectorAll(s).length;
             return JSON.stringify({
-              modalWrap: q('.modal-wrap'),
-              overlay: q('.overlay'),
-              modal: q('.modal'),
-              drawer: q('.drawer'),
-              appShell: q('.app'),
-              bareRoot: q('.bare-root'),
+              overlayScrim: q('.anx-overlay-layer .anx-scrim'),
+              modal: q('.anx-modal'),
+              drawer: q('.anx-drawer'),
+              appShell: q('.anx-shell'),
+              bareRoot: q('.kh-bare'),
               titleOk: document.body.innerText.includes('墨钥 KeyHub'),
-              navItems: q('.nav-item'),
+              navItems: q('.anx-sidenav__item'),
               bodyText: document.body.innerText.slice(0, 200)
             });
           })()`,
@@ -80,16 +79,15 @@ try {
   const { value } = await cdp(target.webSocketDebuggerUrl)
   const d = JSON.parse(value)
   log('')
-  log('modal-wrap(常驻遮罩): ' + d.modalWrap + '   <-- 期望 0')
-  log('overlay(抽屉遮罩):     ' + d.overlay + '   <-- 期望 0')
-  log('.modal 节点:          ' + d.modal + '   <-- 期望 0')
-  log('.drawer 节点:         ' + d.drawer + '   <-- 期望 0')
-  log('.app 外壳渲染:        ' + d.appShell)
+  log('.anx-scrim(常驻遮罩): ' + d.overlayScrim + '   <-- 期望 0')
+  log('.anx-modal 节点:       ' + d.modal + '   <-- 期望 0')
+  log('.anx-drawer 节点:      ' + d.drawer + '   <-- 期望 0')
+  log('.anx-shell 外壳渲染:   ' + d.appShell)
   log('标题栏文案:           ' + d.titleOk)
   log('侧栏导航项数量:       ' + d.navItems)
   log('')
   log('页面首屏文本: ' + JSON.stringify(d.bodyText))
-  const pass = d.modalWrap === 0 && d.overlay === 0 && d.modal === 0 && d.drawer === 0 && d.appShell === 1
+  const pass = d.overlayScrim === 0 && d.modal === 0 && d.drawer === 0 && d.appShell === 1
   log('')
   log(pass ? 'RESULT: PASS 弹窗默认不渲染，页面无遮罩拦截' : 'RESULT: FAIL')
   dump()

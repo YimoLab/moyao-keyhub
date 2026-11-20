@@ -68,7 +68,7 @@ try {
 
   // ── 1. 初始态 ──
   log('【1】初始态')
-  check('无 modal-wrap', (await count('.modal-wrap')) === 0)
+  check('无遮罩', (await count('.anx-overlay-layer .anx-scrim')) === 0)
 
   const openGen = async () => {
     await evalJs(`
@@ -77,13 +77,13 @@ try {
     await sleep(500)
   }
   const closeByX = async () => {
-    await evalJs(`document.querySelector('.modal-head .icon-btn')?.click()`)
+    await evalJs(`document.querySelector('.anx-modal__close')?.click()`)
     await sleep(500)
   }
   const closeByBackdrop = async () => {
     await evalJs(`
       (() => {
-        const w = document.querySelector('.modal-wrap');
+        const w = document.querySelector('.anx-overlay-layer .anx-scrim');
         if (!w) return;
         const r = w.getBoundingClientRect();
         w.dispatchEvent(new MouseEvent('click', { bubbles: true, clientX: r.left + 5, clientY: r.top + 5 }));
@@ -96,28 +96,28 @@ try {
   log('')
   log('【2】打开生成弹窗，检查 footer 按钮')
   await openGen()
-  check('modal-wrap 出现', (await count('.modal-wrap')) === 1)
+  check('弹窗出现', (await count('.anx-modal')) === 1)
   const footBtns = await evalJs(`
-    [...document.querySelectorAll('.modal-foot button')].map(b => b.textContent.trim())
+    [...document.querySelectorAll('.anx-modal__foot button')].map(b => b.textContent.trim())
   `)
   log('  footer 按钮: ' + JSON.stringify(footBtns))
   check('存在「取消」按钮', footBtns.some((t) => t === '取消'))
   check('存在「生成密钥」按钮', footBtns.some((t) => t.includes('生成密钥')))
-  check('X 关闭按钮存在', (await count('.modal-head .icon-btn')) === 1)
+  check('X 关闭按钮存在', (await count('.anx-modal__close')) === 1)
 
   // ── 3. X 关闭 ──
   log('')
   log('【3】点右上角 X 关闭')
   await closeByX()
-  check('弹窗已关闭', (await count('.modal-wrap')) === 0)
+  check('弹窗已关闭', (await count('.anx-modal')) === 0)
 
   // ── 4. 遮罩关闭 ──
   log('')
   log('【4】重新打开，点遮罩关闭')
   await openGen()
-  check('弹窗再次打开', (await count('.modal-wrap')) === 1)
+  check('弹窗再次打开', (await count('.anx-modal')) === 1)
   await closeByBackdrop()
-  check('遮罩点击已关闭', (await count('.modal-wrap')) === 0)
+  check('遮罩点击已关闭', (await count('.anx-modal')) === 0)
 
   log('')
   log(pass ? 'RESULT: PASS footer 按钮 / X 关闭 / 遮罩关闭 全部正常' : 'RESULT: FAIL 存在失败项')

@@ -1,36 +1,44 @@
 /**
- * 主题引擎：亮 / 暗双主题，偏好持久化到 localStorage。
- * 复用设计稿的契约——仅切换 html[data-theme]，组件代码零改动。
+ * 主题适配层：把墨钥原有的 useTheme() 接口接到鉴枢设计系统的主题引擎上。
+ *
+ * 真正的切换逻辑（View Transitions 圆形涟漪 / 圆盘兜底 / 减少动效）在
+ * design/vue/lib/theme.ts；localStorage 键为 authnexus.theme，必须与
+ * index.html 的首帧预置脚本一致。
  */
-import { ref } from 'vue'
+import {
+  applyTheme,
+  currentTheme,
+  themeState,
+  toggleTheme as anxToggleTheme,
+} from '../design/vue/lib/theme'
 
-const KEY = 'keyhub-theme'
-const theme = ref('light')
+const LEGACY_KEY = 'keyhub-theme'
 
 export function useTheme() {
-  function apply(next) {
-    theme.value = next
-    document.documentElement.setAttribute('data-theme', next)
-  }
+  const theme = themeState
 
+  /** 同步响应式状态；首次运行时把旧版键迁移到设计系统键 */
   function initTheme() {
-    let saved = 'light'
     try {
-      saved = localStorage.getItem(KEY) === 'dark' ? 'dark' : 'light'
+      if (!localStorage.getItem('authnexus.theme')) {
+        const legacy = localStorage.getItem(LEGACY_KEY)
+        if (legacy === 'dark' || legacy === 'light') {
+          applyTheme(legacy)
+          return
+        }
+      }
     } catch {
-      /* localStorage 不可用时退回亮色 */
+      /* localStorage 不可用时按首帧预置值走 */
     }
-    apply(saved)
+    applyTheme(currentTheme())
   }
 
-  function toggleTheme() {
-    const next = theme.value === 'dark' ? 'light' : 'dark'
-    apply(next)
-    try {
-      localStorage.setItem(KEY, next)
-    } catch {
-      /* 忽略持久化失败 */
-    }
+  /**
+   * 切换主题。传 origin（触发按钮）才有圆形涟漪过渡；
+   * 设置页这类非按钮触发的场景直接瞬时切换。
+   */
+  function toggleTheme(opts = {}) {
+    return anxToggleTheme(opts)
   }
 
   return { theme, initTheme, toggleTheme }

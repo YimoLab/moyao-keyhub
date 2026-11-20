@@ -1,36 +1,42 @@
 /**
- * 轻量 Toast 服务：全局挂载 $toast，无第三方依赖。
- * 规格取自 design-spec：bg --fg / r12 / 驻留 2.4s / rise 200ms。
+ * 通知适配层：把墨钥原有 toast.push(message, variant) 的调用形式
+ * 接到鉴枢设计系统的 toast() 上（视觉、动效、关闭按钮统一走 .anx-toast）。
+ *
+ * 原 variant → 鉴枢 tone：
+ *   success / ok → ok；danger → danger；warn / info → info（鉴枢没有独立的 warn 色调）
  */
-import { ref, h } from 'vue'
-import ToastHost from '../components/ToastHost.vue'
+import { toast as anxToast } from '../design/vue/overlay/toast'
 
-const items = ref([])
-let seq = 0
+const TONE = { success: 'ok', ok: 'ok', danger: 'danger', warn: 'info', info: 'info' }
 
 function push(message, variant = 'ok') {
-  const id = ++seq
-  items.value.push({ id, message, variant })
-  setTimeout(() => {
-    const i = items.value.findIndex((t) => t.id === id)
-    if (i > -1) items.value.splice(i, 1)
-  }, 2400)
+  return anxToast({
+    tone: TONE[variant] || 'info',
+    title: String(message ?? ''),
+    duration: 3200,
+  })
 }
 
-export function installToast(app) {
-  app.component('ToastHost', ToastHost)
-  // 全局注入到所有模板：this.$toast(...) / const { $toast } = ...
-  app.config.globalProperties.$toast = push
-  app.provide('toast', push)
+/** 兼容 `const toast = useToast(); toast.push(…)` 与 `toast(…)` 两种写法 */
+push.push = push
+
+/** 复制到剪贴板并给出通知（引导页安装指令在用） */
+push.copy = async (text, label = '已复制') => {
+  try {
+    await navigator.clipboard.writeText(text)
+    push(label, 'success')
+  } catch {
+    push('复制失败，请手动选中复制', 'danger')
+  }
 }
 
-/** 组合式用法：在 <script setup> 中 const toast = useToast() */
 export function useToast() {
   return push
 }
 
-export function useToastState() {
-  return { items }
-}
-
 export const toast = push
+
+/** 兼容旧入口；ToastHost 由设计系统在 App.vue 挂载 */
+export function installToast(app) {
+  app.config.globalProperties.$toast = push
+}

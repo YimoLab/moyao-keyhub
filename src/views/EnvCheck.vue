@@ -9,7 +9,9 @@ import { useRouter } from 'vue-router'
 import * as api from '../lib/api'
 import { useEnvStore } from '../lib/store'
 import { useToast } from '../lib/toast'
-import AppIcon from '../components/AppIcon.vue'
+import Icon from '../design/vue/ui/Icon.vue'
+import PageHead from '../design/vue/ui/PageHead.vue'
+import AlertBox from '../design/vue/ui/AlertBox.vue'
 
 const router = useRouter()
 const toast = useToast()
@@ -137,229 +139,111 @@ onMounted(runDetect)
 </script>
 
 <template>
-  <div class="envcheck">
-    <header class="ec-head">
-      <div>
-        <h1>环境自检</h1>
-        <p class="ec-sub">
-          检测 SSH 客户端、Git、~/.ssh 目录与 ssh-agent 的就绪状态。全程只读，不改动任何文件。
-        </p>
-      </div>
-      <button class="btn sm" :disabled="detecting" @click="runDetect">
-        <span v-if="detecting" class="spin" />
-        <AppIcon v-else name="refresh" :size="13" />
-        {{ detecting ? '检测中…' : '重新检测' }}
-      </button>
-    </header>
+  <div class="kh-page">
+    <PageHead
+      title="环境自检"
+      desc="检测 SSH 客户端、Git、~/.ssh 目录与 ssh-agent 的就绪状态。全程只读，不改动任何文件。"
+    >
+      <template #actions>
+        <button class="anx-btn anx-btn--ghost anx-btn--sm" :disabled="detecting" @click="runDetect">
+          <span v-if="detecting" class="anx-btn__spinner" />
+          <Icon v-else name="refresh" :size="15" />
+          {{ detecting ? '检测中…' : '重新检测' }}
+        </button>
+      </template>
+    </PageHead>
 
-    <div v-if="allOk && report" class="banner ok-banner">
-      <AppIcon name="check" :size="16" />
-      <span>全部就绪，当前环境可以正常使用墨钥的全部功能。</span>
-    </div>
+    <AlertBox
+      v-if="allOk && report"
+      tone="ok"
+      text="全部就绪，当前环境可以正常使用墨钥的全部功能。"
+    />
 
-    <div v-if="detectError" class="banner danger ec-banner">
-      <AppIcon name="warning" :size="16" />
-      <div>
-        <strong>无法完成环境检测</strong>
-        <p>{{ detectError.message }}</p>
-        <p>这不代表 OpenSSH 或 Git 缺失，请确认桌面后端已连接后重新检测。</p>
-      </div>
-    </div>
+    <AlertBox
+      v-if="detectError"
+      tone="danger"
+      title="无法完成环境检测"
+      :lines="[
+        detectError.message,
+        '这不代表 OpenSSH 或 Git 缺失，请确认桌面后端已连接后重新检测。',
+      ]"
+    />
 
-    <div class="ec-grid">
-      <div
+    <div class="kh-env-grid">
+      <section
         v-for="c in checks"
         :key="c.key"
-        class="ec-card"
-        :class="detecting ? 'checking' : c.ok === null ? 'unknown' : c.ok ? 'ok' : 'bad'"
+        class="anx-panel kh-envcard"
+        :class="detecting ? 'kh-envcard--checking' : c.ok === null ? 'kh-envcard--unknown' : c.ok ? 'kh-envcard--ok' : c.key === 'git' || c.key === 'agent' ? 'kh-envcard--unknown' : 'kh-envcard--bad'"
       >
-        <div class="ec-top">
-          <span class="ec-ico"><AppIcon :name="c.icon" :size="17" /></span>
-          <strong>{{ c.title }}</strong>
-          <span class="pill" :class="detecting ? 'idle' : c.ok === null ? 'idle' : c.ok ? 'ok' : c.key === 'git' || c.key === 'agent' ? 'idle' : 'danger'">
-            <span v-if="detecting" class="spin" />
+        <div class="anx-panel__head kh-envcard__head">
+          <span class="kh-envcard__icon"><Icon :name="c.icon" :size="18" /></span>
+          <div class="kh-grow">
+            <h2>{{ c.title }}</h2>
+            <p>{{ c.desc }}</p>
+          </div>
+          <span
+            class="anx-badge"
+            :class="
+              detecting
+                ? 'anx-badge--neutral'
+                : c.ok === null
+                  ? 'anx-badge--neutral'
+                  : c.ok
+                    ? 'anx-badge--ok'
+                    : c.key === 'git' || c.key === 'agent'
+                      ? 'anx-badge--neutral'
+                      : 'anx-badge--danger'
+            "
+          >
+            <span v-if="detecting" class="anx-btn__spinner" />
             {{ detecting ? '检测中' : c.value }}
           </span>
         </div>
-        <p class="ec-desc">{{ c.desc }}</p>
-        <p class="ec-hint">{{ c.hint }}</p>
 
-        <!-- 就地修复入口：只有明确判定为「不合规」时才出现 -->
-        <div v-if="!detecting && c.ok === false && c.key === 'ssh'" class="ec-fix">
-          <button class="btn sm" @click="loadGuide">查看安装指引</button>
-          <button
-            v-if="report?.platform === 'windows'"
-            class="btn sm"
-            :disabled="enabling"
-            @click="enableOpenSsh"
-          >
-            <span v-if="enabling" class="spin" />
-            一键启用系统 OpenSSH
-          </button>
+        <div class="anx-panel__body kh-envcard__body">
+          <p class="anx-t-sm anx-t-muted">{{ c.hint }}</p>
+
+          <!-- 就地修复入口：只有明确判定为「不合规」时才出现 -->
+          <div v-if="!detecting && c.ok === false && c.key === 'ssh'" class="kh-actions">
+            <button class="anx-btn anx-btn--sm" @click="loadGuide">查看安装指引</button>
+            <button
+              v-if="report?.platform === 'windows'"
+              class="anx-btn anx-btn--primary anx-btn--sm"
+              :disabled="enabling"
+              @click="enableOpenSsh"
+            >
+              <span v-if="enabling" class="anx-btn__spinner" />
+              一键启用系统 OpenSSH
+            </button>
+          </div>
+          <div v-if="!detecting && c.ok === false && c.key === 'dir'" class="kh-actions">
+            <button class="anx-btn anx-btn--sm" @click="router.push({ name: 'security' })">
+              去安全中心修复权限
+            </button>
+          </div>
+          <div v-if="!detecting && c.ok === false && c.key === 'agent'" class="kh-actions">
+            <button class="anx-btn anx-btn--sm" @click="router.push({ name: 'security' })">
+              前往安全中心
+            </button>
+          </div>
         </div>
-        <div v-if="!detecting && c.ok === false && c.key === 'dir'" class="ec-fix">
-          <button class="btn sm" @click="router.push({ name: 'security' })">
-            去安全中心修复权限
-          </button>
-        </div>
-        <div v-if="!detecting && c.ok === false && c.key === 'agent'" class="ec-fix">
-          <button class="btn sm" @click="router.push({ name: 'security' })">前往安全中心</button>
-        </div>
-      </div>
+      </section>
     </div>
 
     <!-- 安装指引 -->
-    <div v-if="showGuide && guide" class="ec-guide">
-      <div class="ecg-head">
-        <strong>OpenSSH 安装指引</strong>
-        <button class="icon-btn" aria-label="关闭" @click="showGuide = false">
-          <AppIcon name="close" :width="1.8" />
-        </button>
+    <section v-if="showGuide && guide" class="anx-panel">
+      <div class="anx-panel__head">
+        <div><h2>OpenSSH 安装指引</h2></div>
+        <div class="anx-panel__head-actions">
+          <button class="anx-iconbtn" aria-label="关闭" @click="showGuide = false">
+            <Icon name="close" :size="16" />
+          </button>
+        </div>
       </div>
-      <pre class="ecg-body">{{ guide }}</pre>
-    </div>
+      <div class="anx-panel__body">
+        <pre class="kh-pre">{{ guide }}</pre>
+      </div>
+    </section>
   </div>
 </template>
-
-<style scoped>
-.envcheck {
-  max-width: 980px;
-}
-.ec-head {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 16px;
-  margin-bottom: 18px;
-}
-.ec-head h1 {
-  margin: 0 0 4px;
-  font-size: 19px;
-}
-.ec-sub {
-  margin: 0;
-  font-size: 12.5px;
-  color: var(--fg-faint);
-  line-height: 1.6;
-}
-.ok-banner,
-.ec-banner {
-  display: flex;
-  align-items: center;
-  gap: 9px;
-  padding: 11px 14px;
-  border-radius: var(--radius-md);
-  font-size: 13px;
-  margin-bottom: 16px;
-}
-.ok-banner {
-  background: var(--success-soft, color-mix(in srgb, #22c55e 12%, transparent));
-  color: var(--success-ink, #15803d);
-}
-.ec-banner {
-  background: color-mix(in srgb, var(--danger) 9%, transparent);
-  color: var(--danger);
-  align-items: flex-start;
-}
-.ec-banner p {
-  margin: 3px 0 0;
-  font-size: 12px;
-}
-.ec-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
-  gap: 13px;
-}
-.ec-card {
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-md);
-  padding: 15px 16px;
-  display: flex;
-  flex-direction: column;
-  gap: 7px;
-  border-left: 3px solid var(--border);
-}
-.ec-card.ok {
-  border-left-color: var(--success);
-}
-.ec-card.bad {
-  border-left-color: var(--danger);
-}
-.ec-card.unknown {
-  border-left-color: var(--border);
-}
-.ec-card.checking {
-  border-left-color: var(--accent);
-}
-.ec-top {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-.ec-top strong {
-  font-size: 13.5px;
-  flex: 1;
-}
-.ec-ico {
-  width: 28px;
-  height: 28px;
-  border-radius: 8px;
-  display: grid;
-  place-items: center;
-  background: var(--surface-warm);
-  color: var(--fg-muted);
-  flex: 0 0 auto;
-}
-.ec-card.ok .ec-ico {
-  color: #16a34a;
-}
-.ec-card.bad .ec-ico {
-  color: var(--danger);
-}
-.ec-desc {
-  margin: 0;
-  font-size: 11.5px;
-  color: var(--fg-muted);
-}
-.ec-hint {
-  margin: 0;
-  font-size: 11.5px;
-  color: var(--fg-faint);
-  line-height: 1.55;
-  flex: 1;
-}
-.ec-fix {
-  display: flex;
-  gap: 8px;
-  flex-wrap: wrap;
-  margin-top: 4px;
-}
-.ec-guide {
-  margin-top: 18px;
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-md);
-  overflow: hidden;
-}
-.ecg-head {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 12px 15px;
-  border-bottom: 1px solid var(--border);
-  font-size: 13px;
-}
-.ecg-body {
-  margin: 0;
-  padding: 14px 16px;
-  font-family: var(--font-mono);
-  font-size: 12px;
-  line-height: 1.7;
-  white-space: pre-wrap;
-  word-break: break-word;
-  color: var(--fg);
-  max-height: 320px;
-  overflow: auto;
-}
-</style>

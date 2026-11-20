@@ -12,7 +12,12 @@ import { ref, computed, onMounted, watch } from 'vue'
 import * as api from '../lib/api'
 import { useToast } from '../lib/toast'
 import { useEnvStore } from '../lib/store'
-import AppIcon from '../components/AppIcon.vue'
+import Icon from '../design/vue/ui/Icon.vue'
+import PageHead from '../design/vue/ui/PageHead.vue'
+import EmptyState from '../design/vue/ui/EmptyState.vue'
+import FieldInput from '../design/vue/ui/FieldInput.vue'
+import SelectMenu from '../design/vue/ui/SelectMenu.vue'
+import SegmentedControl from '../design/vue/ui/SegmentedControl.vue'
 import AppModal from '../components/AppModal.vue'
 import AppDrawer from '../components/AppDrawer.vue'
 import AppErrorState from '../components/AppErrorState.vue'
@@ -25,6 +30,10 @@ const loading = ref(true)
 const loadError = ref(null)
 const doc = ref(null)
 const mode = ref('form') // form | raw
+const modeOptions = [
+  { value: 'form', label: '表单' },
+  { value: 'raw', label: '原文' },
+]
 const dirty = ref(false)
 const saving = ref(false)
 
@@ -350,6 +359,10 @@ function renderPreview(h) {
 /* 密钥下拉（IdentityFile 选择） */
 const keyOptions = ref([])
 
+const keySelectOptions = computed(() =>
+  keyOptions.value.map((k) => ({ value: k.filename, label: `${k.filename} · ${k.algorithm}` }))
+)
+
 async function loadKeys() {
   try {
     keyOptions.value = (await api.scanKeys()) || []
@@ -365,264 +378,251 @@ onMounted(async () => {
 </script>
 
 <template>
-  <div class="cfg">
-    <div class="page-head">
-      <div>
-        <h1>SSH Config</h1>
-        <p class="sub">可视化编辑 ~/.ssh/config。墨钥只重写自己托管的块，块外的配置一字不动。</p>
-      </div>
-    </div>
+  <div class="kh-page">
+    <PageHead
+      title="SSH Config"
+      desc="可视化编辑 ~/.ssh/config。墨钥只重写自己托管的块，块外的配置一字不动。"
+    />
 
     <!-- 顶部状态条 -->
-    <div class="cfg-head">
-      <div class="ch-left">
-        <div class="ch-path">
-          <AppIcon name="file" :size="14" />
+    <div class="kh-toolbar">
+      <div class="kh-toolbar__left">
+        <span class="kh-path">
+          <Icon name="file" :size="15" />
           <code>{{ doc?.prettyPath || '~/.ssh/config' }}</code>
-          <span v-if="doc?.exists" class="pill" :class="doc.permCompliant ? 'ok' : 'warn'">
-            {{ doc.permDisplay || '—' }}
-          </span>
-          <span v-else class="pill idle">文件不存在</span>
-        </div>
-        <div v-if="doc?.hasManagedBlock" class="ch-managed">
-          <AppIcon name="check" :size="12" />
+        </span>
+        <span
+          v-if="doc?.exists"
+          class="anx-badge"
+          :class="doc.permCompliant ? 'anx-badge--ok' : 'anx-badge--warn'"
+        >
+          {{ doc.permDisplay || '—' }}
+        </span>
+        <span v-else class="anx-badge anx-badge--neutral">文件不存在</span>
+        <span v-if="doc?.hasManagedBlock" class="anx-badge anx-badge--ok">
+          <Icon name="check" :size="12" />
           含墨钥托管块
-        </div>
+        </span>
       </div>
-      <div class="ch-right">
-        <div class="seg small">
-          <button :class="{ on: mode === 'form' }" @click="mode = 'form'">表单</button>
-          <button :class="{ on: mode === 'raw' }" @click="mode = 'raw'">原文</button>
-        </div>
-        <button class="btn ghost sm" @click="backupsOpen = true">
-          <AppIcon name="clock" :size="14" />
+      <div class="kh-toolbar__right">
+        <SegmentedControl v-model="mode" :options="modeOptions" />
+        <button class="anx-btn anx-btn--ghost anx-btn--sm" @click="backupsOpen = true">
+          <Icon name="clock" :size="15" />
           备份历史
-          <span v-if="backups.length" class="badge">{{ backups.length }}</span>
+          <span v-if="backups.length" class="anx-tab__count">{{ backups.length }}</span>
         </button>
       </div>
     </div>
 
     <!-- 加载 / 错误 -->
-    <div v-if="loading" class="empty">
-      <span class="spin lg" />
-      <p>正在解析 config …</p>
+    <div v-if="loading" class="anx-empty">
+      <span class="kh-spin kh-spin--lg" />
+      <p class="anx-empty__title">正在解析 config …</p>
     </div>
 
     <AppErrorState
       v-else-if="loadError"
-      :title="'无法读取 ~/.ssh/config'"
+      title="无法读取 ~/.ssh/config"
       :detail="loadError.message"
       @retry="load"
     />
 
     <!-- 不存在时引导 -->
-    <div v-else-if="!doc?.exists" class="empty">
-      <span class="empty-seal"><AppIcon name="config" :size="26" /></span>
-      <p>还没有 SSH config 文件</p>
-      <span>config 能让你用简短的别名代替冗长的连接参数</span>
-      <div class="row">
-        <button class="btn primary sm" @click="createSample">生成示例配置</button>
-        <button class="btn sm" @click="mode = 'raw'">空白开始</button>
-      </div>
-    </div>
+    <EmptyState
+      v-else-if="!doc?.exists"
+      icon="file-text"
+      title="还没有 SSH config 文件"
+      text="config 能让你用简短的别名代替冗长的连接参数"
+    >
+      <template #actions>
+        <button class="anx-btn anx-btn--primary anx-btn--sm" @click="createSample">生成示例配置</button>
+        <button class="anx-btn anx-btn--sm" @click="mode = 'raw'">空白开始</button>
+      </template>
+    </EmptyState>
 
     <!-- 主体 -->
-    <div v-else class="cfg-body">
+    <div v-else class="kh-cfg kh-collapse">
       <!-- 左：Host 窗格 -->
-      <aside v-if="mode === 'form'" class="pane">
-        <div class="pane-head">
-          <div class="search sm">
-            <AppIcon name="search" :size="14" />
-            <input v-model="hostQuery" type="text" placeholder="筛选 Host…" />
+      <aside v-if="mode === 'form'" class="anx-panel kh-cfg-pane">
+        <div class="anx-panel__head kh-cfg-pane__head">
+          <div class="kh-searchfield kh-grow">
+            <Icon name="search" :size="14" />
+            <input v-model="hostQuery" class="anx-input" type="text" placeholder="筛选 Host…" aria-label="筛选 Host" />
           </div>
-          <button class="btn primary sm icon-only" title="新增 Host" @click="addHost">
-            <AppIcon name="plus" :size="15" />
+          <button class="anx-btn anx-btn--primary anx-btn--sm" title="新增 Host" @click="addHost">
+            <Icon name="plus" :size="15" />
           </button>
         </div>
 
-        <div class="pane-list">
-          <div v-if="!hosts.length" class="pane-empty">
-            <AppIcon name="config" :size="20" />
-            <span>还没有 Host</span>
-            <button class="btn xs primary" @click="addHost">新增第一条</button>
+        <div class="kh-cfg-pane__list">
+          <div v-if="!hosts.length" class="anx-empty kh-empty-inline">
+            <div class="anx-empty__icon"><Icon name="file-text" :size="22" /></div>
+            <p class="anx-empty__title">还没有 Host</p>
+            <button class="anx-btn anx-btn--primary anx-btn--sm" @click="addHost">新增第一条</button>
           </div>
 
           <button
             v-for="h in filteredHosts"
             :key="h.id"
-            class="host-item"
-            :class="{ on: selectedId === h.id }"
+            type="button"
+            class="kh-host-item"
+            :aria-current="selectedId === h.id ? 'true' : undefined"
             @click="selectedId = h.id"
           >
-            <span class="hi-ico"><AppIcon name="server" :size="14" /></span>
-            <div class="hi-body">
-              <div class="hi-name">
+            <span class="kh-host-item__ico"><Icon name="server" :size="14" /></span>
+            <span class="kh-host-item__body">
+              <span class="kh-host-item__name">
                 <strong>{{ h.alias || '(未命名)' }}</strong>
-                <span v-if="issueByAlias[(h.alias || '').toLowerCase()]?.error" class="dot-err" />
-                <span v-else-if="issueByAlias[(h.alias || '').toLowerCase()]?.warn" class="dot-warn" />
-              </div>
-              <span class="hi-sub">
+                <span v-if="issueByAlias[(h.alias || '').toLowerCase()]?.error" class="kh-dot kh-dot--danger" />
+                <span v-else-if="issueByAlias[(h.alias || '').toLowerCase()]?.warn" class="kh-dot kh-dot--warn" />
+              </span>
+              <span class="kh-host-item__sub">
                 {{ h.user ? h.user + '@' : '' }}{{ h.hostname || '—' }}{{ h.port && h.port !== 22 ? ':' + h.port : '' }}
               </span>
-              <span v-if="h.note" class="hi-note">{{ h.note }}</span>
-            </div>
+              <span v-if="h.note" class="kh-host-item__note">{{ h.note }}</span>
+            </span>
           </button>
         </div>
 
-        <div class="pane-foot">
+        <div class="anx-panel__foot kh-cfg-pane__foot">
           <span>{{ hosts.length }} 条 Host</span>
-          <span v-if="!doc.hasManagedBlock" class="pf-warn" title="保存后会创建墨钥托管块">
-            <AppIcon name="info" :size="11" /> 保存后创建托管块
+          <span v-if="!doc.hasManagedBlock" class="kh-fine kh-warn-text" title="保存后会创建墨钥托管块">
+            <Icon name="info" :size="12" /> 保存后创建托管块
           </span>
         </div>
       </aside>
 
       <!-- 右：编辑器 -->
-      <!-- full：raw 模式下没有左侧窗格，编辑器必须横跨整个 grid 行，否则会被塞进 280px 固定列 -->
-      <section class="editor" :class="{ full: mode !== 'form' }">
+      <section class="anx-panel kh-cfg-editor" :class="{ 'kh-cfg-editor--full': mode !== 'form' }">
         <!-- Form 模式 -->
         <template v-if="mode === 'form'">
-          <div v-if="!selected" class="empty">
-            <AppIcon name="config" :size="24" />
-            <p>选择或新增一个 Host</p>
-            <span>左侧列表中的每一条都对应 config 里的一个 Host 段</span>
+          <div v-if="!selected" class="anx-empty">
+            <div class="anx-empty__icon"><Icon name="file-text" :size="24" /></div>
+            <p class="anx-empty__title">选择或新增一个 Host</p>
+            <p class="anx-empty__text">左侧列表中的每一条都对应 config 里的一个 Host 段</p>
           </div>
 
           <template v-else>
-            <header class="ed-head">
+            <div class="anx-panel__head">
               <div>
-                <h3>{{ selected.alias || '未命名 Host' }}</h3>
-                <span class="ed-sub">
-                  {{ selected.managed ? '墨钥托管' : '已有配置（保存后纳入托管）' }}
-                </span>
+                <h2>{{ selected.alias || '未命名 Host' }}</h2>
+                <p>{{ selected.managed ? '墨钥托管' : '已有配置（保存后纳入托管）' }}</p>
               </div>
-              <div class="ed-actions">
-                <button class="btn ghost sm" title="复制" @click="duplicateHost(selected.id)">
-                  <AppIcon name="copy" :size="13" /> 复制
+              <div class="anx-panel__head-actions">
+                <button class="anx-btn anx-btn--ghost anx-btn--sm" title="复制" @click="duplicateHost(selected.id)">
+                  <Icon name="copy" :size="14" />
+                  复制
                 </button>
-                <button class="btn ghost sm danger-text" title="移除" @click="removeHost(selected.id)">
-                  <AppIcon name="trash" :size="13" /> 移除
+                <button
+                  class="anx-btn anx-btn--danger-quiet anx-btn--sm"
+                  title="移除"
+                  @click="removeHost(selected.id)"
+                >
+                  <Icon name="trash" :size="14" />
+                  移除
                 </button>
               </div>
-            </header>
+            </div>
 
-            <div class="ed-form">
-              <div class="grid2">
-                <div class="field">
-                  <label>Host 别名 <span class="req">*</span></label>
-                  <input
-                    :value="selected.alias"
-                    type="text"
-                    class="input mono"
-                    placeholder="github-work"
-                    @input="patchHost('alias', $event.target.value)"
-                  />
-                  <p class="hint-row">用于 <code>ssh 别名</code> 直接连接，不能含空格</p>
-                </div>
-                <div class="field">
-                  <label>主机名 / IP</label>
-                  <input
-                    :value="selected.hostname"
-                    type="text"
-                    class="input mono"
-                    placeholder="github.com 或 192.168.1.10"
-                    @input="patchHost('hostname', $event.target.value)"
-                  />
-                  <p class="hint-row">留空则直接用别名作为域名</p>
-                </div>
+            <div class="anx-panel__body kh-form">
+              <div class="kh-form-grid">
+                <FieldInput
+                  label="Host 别名"
+                  required
+                  mono
+                  placeholder="github-work"
+                  :model-value="selected.alias"
+                  hint="用于 ssh 别名 直接连接，不能含空格"
+                  @update:model-value="patchHost('alias', $event)"
+                />
+                <FieldInput
+                  label="主机名 / IP"
+                  mono
+                  placeholder="github.com 或 192.168.1.10"
+                  :model-value="selected.hostname"
+                  hint="留空则直接用别名作为域名"
+                  @update:model-value="patchHost('hostname', $event)"
+                />
               </div>
 
-              <div class="grid2">
-                <div class="field">
-                  <label>登录用户</label>
+              <div class="kh-form-grid">
+                <FieldInput
+                  label="登录用户"
+                  mono
+                  placeholder="root / ubuntu / git"
+                  :model-value="selected.user"
+                  @update:model-value="patchHost('user', $event)"
+                />
+                <div class="anx-field kh-field">
+                  <label class="anx-field__label" for="cfg-port">端口</label>
                   <input
-                    :value="selected.user"
-                    type="text"
-                    class="input mono"
-                    placeholder="root / ubuntu / git"
-                    @input="patchHost('user', $event.target.value)"
-                  />
-                </div>
-                <div class="field">
-                  <label>端口</label>
-                  <input
-                    :value="selected.port || ''"
+                    id="cfg-port"
+                    class="anx-input anx-input--mono"
                     type="number"
                     min="1"
                     max="65535"
-                    class="input mono"
                     placeholder="22"
+                    :value="selected.port || ''"
                     @input="patchHost('port', Number($event.target.value) || 0)"
                   />
-                  <p v-if="selected.port > 65535" class="hint-row danger-text">
-                    端口超出 1-65535 范围
-                  </p>
+                  <p v-if="selected.port > 65535" class="anx-field__error">端口超出 1-65535 范围</p>
                 </div>
               </div>
 
-              <div class="field">
-                <label>IdentityFile（私钥）</label>
-                <div class="id-row">
-                  <select
-                    class="select mono"
-                    :value="matchKeyName(selected.identity)"
-                    @change="patchHost('identity', $event.target.value ? '~/.ssh/' + $event.target.value : '')"
-                  >
-                    <option value="">（不指定）</option>
-                    <option v-for="k in keyOptions" :key="k.filename" :value="k.filename">
-                      {{ k.filename }} · {{ k.algorithm }}
-                    </option>
-                  </select>
+              <div class="anx-field kh-field">
+                <span class="anx-field__label">IdentityFile（私钥）</span>
+                <div class="kh-id-row">
+                  <SelectMenu
+                    :model-value="matchKeyName(selected.identity)"
+                    :options="keySelectOptions"
+                    placeholder="（不指定）"
+                    aria-label="选择已有密钥"
+                    @update:model-value="patchHost('identity', $event ? '~/.ssh/' + $event : '')"
+                  />
                   <input
-                    :value="selected.identity"
+                    class="anx-input anx-input--mono"
                     type="text"
-                    class="input mono"
                     placeholder="~/.ssh/id_ed25519"
+                    :value="selected.identity"
                     @input="patchHost('identity', $event.target.value)"
                   />
                 </div>
-                <p class="hint-row">
-                  选择已有密钥会自动填写为 <code>~/.ssh/文件名</code>；也可手动输入任意路径
+                <p class="anx-field__hint">
+                  选择已有密钥会自动填写为 <code class="kh-code-inline">~/.ssh/文件名</code>；也可手动输入任意路径
                 </p>
               </div>
 
-              <div class="field">
-                <label>备注</label>
-                <input
-                  :value="selected.note"
-                  type="text"
-                  class="input"
-                  placeholder="工作账号 / 公司 GitLab 等，仅作说明"
-                  @input="patchHost('note', $event.target.value)"
-                />
-                <p class="hint-row">备注会以注释形式写在 Host 上方，不影响 SSH 行为</p>
-              </div>
+              <FieldInput
+                label="备注"
+                placeholder="工作账号 / 公司 GitLab 等，仅作说明"
+                :model-value="selected.note"
+                hint="备注会以注释形式写在 Host 上方，不影响 SSH 行为"
+                @update:model-value="patchHost('note', $event)"
+              />
 
               <!-- 额外参数（原样保留） -->
-              <div v-if="selected.extra?.filter((e) => e[0] !== 'HostAlias').length" class="field">
-                <label>其它参数（原样保留）</label>
-                <div class="extra-list">
+              <div v-if="selected.extra?.filter((e) => e[0] !== 'HostAlias').length" class="anx-field kh-field">
+                <span class="anx-field__label">其它参数（原样保留）</span>
+                <div class="kh-extra-list">
                   <div
                     v-for="(pair, i) in selected.extra.filter((e) => e[0] !== 'HostAlias')"
                     :key="i"
-                    class="extra-row"
+                    class="kh-extra-row"
                   >
                     <code>{{ pair[0] }}</code>
                     <span>{{ pair[1] }}</span>
                   </div>
                 </div>
-                <p class="hint-row">
+                <p class="anx-field__hint">
                   这些是墨钥未识别为常用字段的配置（如 ProxyJump、ForwardAgent），
                   保存时会原样写入，不会被丢弃。
                 </p>
               </div>
 
               <!-- 该 Host 的实时预览 -->
-              <div class="field">
-                <label>将写入的内容</label>
-                <div class="rawbox">
-                  <code>{{ renderPreview(selected) }}</code>
-                </div>
+              <div class="anx-field kh-field">
+                <span class="anx-field__label">将写入的内容</span>
+                <pre class="kh-pre">{{ renderPreview(selected) }}</pre>
               </div>
             </div>
           </template>
@@ -630,20 +630,18 @@ onMounted(async () => {
 
         <!-- Raw 模式 -->
         <template v-else>
-          <header class="ed-head">
+          <div class="anx-panel__head">
             <div>
-              <h3>原文编辑</h3>
-              <span class="ed-sub">
-                直接编辑完整文件。保存时若校验不通过（如 Host 重复、密钥不存在）将被拒绝
-              </span>
+              <h2>原文编辑</h2>
+              <p>直接编辑完整文件。保存时若校验不通过（如 Host 重复、密钥不存在）将被拒绝</p>
             </div>
-            <div class="ed-actions">
-              <span class="mono-sm">{{ rawText.split('\n').length }} 行</span>
+            <div class="anx-panel__head-actions">
+              <span class="anx-t-mono">{{ rawText.split('\n').length }} 行</span>
             </div>
-          </header>
+          </div>
           <textarea
             v-model="rawText"
-            class="raw-editor"
+            class="anx-textarea kh-raw-editor"
             spellcheck="false"
             placeholder="Host my-server&#10;    HostName 192.168.1.10&#10;    User root&#10;    Port 22&#10;    IdentityFile ~/.ssh/id_ed25519&#10;    IdentitiesOnly yes"
           />
@@ -651,65 +649,59 @@ onMounted(async () => {
       </section>
 
       <!-- 右：校验清单 -->
-      <aside class="issues">
-        <div class="is-head">
-          <span class="is-title">校验清单</span>
-          <span v-if="!issues.length" class="pill ok"><AppIcon name="check" :size="11" /> 全部通过</span>
-          <div v-else class="is-counts">
-            <span v-if="errors.length" class="pill danger">{{ errors.length }} 错误</span>
-            <span v-if="warnings.length" class="pill warn">{{ warnings.length }} 提醒</span>
-            <span v-if="infos.length" class="pill idle">{{ infos.length }} 建议</span>
-          </div>
-        </div>
-
-        <div class="is-body">
-          <div v-if="!issues.length" class="is-ok">
-            <span class="is-seal"><AppIcon name="check" :size="20" /></span>
-            <strong>没有发现问题</strong>
-            <p>所有 Host 的别名、路径与端口都通过了检查。</p>
-          </div>
-
-          <div
-            v-for="(i, idx) in issues"
-            :key="idx"
-            class="issue"
-            :class="i.level"
-          >
-            <span class="is-icon">
-              <AppIcon
-                :name="i.level === 'error' ? 'warning' : i.level === 'warn' ? 'info' : 'info'"
-                :size="14"
-              />
-            </span>
-            <div class="is-text">
-              <div class="is-msg">{{ i.message }}</div>
-              <div v-if="i.hint" class="is-hint">{{ i.hint }}</div>
+      <aside class="anx-panel kh-cfg-issues">
+        <div class="anx-panel__head kh-cfg-issues__head">
+          <div>
+            <h2>校验清单</h2>
+            <div class="kh-actions">
+              <span v-if="!issues.length" class="anx-badge anx-badge--ok">
+                <Icon name="check" :size="12" /> 全部通过
+              </span>
+              <span v-if="errors.length" class="anx-badge anx-badge--danger">{{ errors.length }} 错误</span>
+              <span v-if="warnings.length" class="anx-badge anx-badge--warn">{{ warnings.length }} 提醒</span>
+              <span v-if="infos.length" class="anx-badge anx-badge--neutral">{{ infos.length }} 建议</span>
             </div>
           </div>
         </div>
 
-        <!-- sticky 保存栏 -->
-        <div class="is-save">
-          <div v-if="dirty" class="dirty-tip">
-            <AppIcon name="info" :size="12" />
-            有未保存的更改
+        <div class="kh-cfg-issues__body">
+          <div v-if="!issues.length" class="anx-empty kh-empty-inline">
+            <div class="anx-empty__icon kh-ok-icon"><Icon name="check" :size="22" /></div>
+            <p class="anx-empty__title">没有发现问题</p>
+            <p class="anx-empty__text">所有 Host 的别名、路径与端口都通过了检查。</p>
           </div>
-          <div v-else class="dirty-tip clean">
-            <AppIcon name="check" :size="12" />
-            已是最新
+
+          <div v-for="(i, idx) in issues" :key="idx" class="kh-issue" :class="'kh-issue--' + i.level">
+            <Icon
+              :name="i.level === 'error' ? 'alert-triangle' : 'info'"
+              :size="15"
+              class="kh-issue__icon"
+            />
+            <div class="kh-grow">
+              <div class="kh-issue__msg">{{ i.message }}</div>
+              <div v-if="i.hint" class="kh-issue__hint">{{ i.hint }}</div>
+            </div>
           </div>
-          <div class="save-row">
-            <button class="btn ghost sm" :disabled="!dirty" @click="discard">放弃</button>
+        </div>
+
+        <!-- 保存栏 -->
+        <div class="anx-panel__foot kh-cfg-save">
+          <div class="kh-fine" :class="dirty ? 'kh-warn-text' : ''">
+            <Icon :name="dirty ? 'info' : 'check'" :size="13" />
+            {{ dirty ? '有未保存的更改' : '已是最新' }}
+          </div>
+          <div class="kh-actions">
+            <button class="anx-btn anx-btn--ghost anx-btn--sm" :disabled="!dirty" @click="discard">放弃</button>
             <button
-              class="btn primary sm"
+              class="anx-btn anx-btn--primary anx-btn--sm"
               :disabled="!dirty || saving || hasBlocking"
               @click="askSave"
             >
-              <span v-if="saving" class="spin" />
+              <span v-if="saving" class="anx-btn__spinner" />
               保存
             </button>
           </div>
-          <p v-if="hasBlocking" class="is-block">
+          <p v-if="hasBlocking" class="kh-fine kh-danger-text">
             存在 {{ errors.length }} 个错误，修复后才能保存
           </p>
         </div>
@@ -718,23 +710,26 @@ onMounted(async () => {
 
     <!-- ══════ 保存确认 ══════ -->
     <AppModal v-model="saveOpen" title="保存 config" :dismissable="false">
-      <div class="confirm">
-        <div class="cf-icon"><AppIcon name="check" :size="20" /></div>
-        <p class="cf-lead">即将写入 <code>~/.ssh/config</code>。</p>
-        <ul class="cf-list">
+      <div class="kh-confirm">
+        <span class="kh-cf-icon kh-ok-icon"><Icon name="check" :size="20" /></span>
+        <p class="anx-t-sm">
+          即将写入 <code class="kh-code-inline">~/.ssh/config</code>。
+        </p>
+        <ul class="kh-check-list">
           <li>保存前会自动备份当前文件，可随时回滚</li>
           <li>保存后文件权限会被设为 600（仅属主可读写）</li>
           <li v-if="mode === 'form'">表单模式只重写墨钥托管块，其余内容原样保留</li>
         </ul>
-        <div class="field">
-          <label>备份备注（可选）</label>
-          <input v-model="saveNote" type="text" class="input" placeholder="例如：新增公司 GitLab 配置" />
-        </div>
+        <FieldInput
+          v-model="saveNote"
+          label="备份备注（可选）"
+          placeholder="例如：新增公司 GitLab 配置"
+        />
       </div>
       <template #footer>
-        <button class="btn ghost" @click="saveOpen = false">取消</button>
-        <button class="btn primary" :disabled="saving" @click="doSave">
-          <span v-if="saving" class="spin" />
+        <button class="anx-btn anx-btn--ghost" @click="saveOpen = false">取消</button>
+        <button class="anx-btn anx-btn--primary" :disabled="saving" @click="doSave">
+          <span v-if="saving" class="anx-btn__spinner" />
           确认保存
         </button>
       </template>
@@ -742,32 +737,34 @@ onMounted(async () => {
 
     <!-- ══════ 备份历史抽屉 ══════ -->
     <AppDrawer v-model="backupsOpen" title="config 备份历史">
-      <div v-if="!backups.length" class="empty">
-        <AppIcon name="clock" :size="22" />
-        <p>还没有备份</p>
-        <span>每次保存 config 时墨钥都会自动创建一份备份</span>
+      <div v-if="!backups.length" class="anx-empty">
+        <div class="anx-empty__icon"><Icon name="clock" :size="22" /></div>
+        <p class="anx-empty__title">还没有备份</p>
+        <p class="anx-empty__text">每次保存 config 时墨钥都会自动创建一份备份</p>
       </div>
-      <ul v-else class="bk-list">
-        <li v-for="b in backups" :key="b.name" class="bk-item">
-          <span class="bk-ico"><AppIcon name="clock" :size="14" /></span>
-          <div class="bk-body">
-            <div class="bk-name">{{ b.name }}</div>
-            <div class="bk-meta">
-              <span>{{ b.createdAt?.slice(0, 19).replace('T', ' ') || '—' }}</span>
-              <span class="sep-dot">·</span>
-              <span>{{ b.lines }} 行</span>
-              <span class="sep-dot">·</span>
-              <span>{{ fmtSize(b.size) }}</span>
-              <span class="tag sm">{{ reasonLabel(b.reason) }}</span>
+      <ul v-else class="kh-list">
+        <li v-for="b in backups" :key="b.name" class="kh-list__item">
+          <span class="kh-host-item__ico"><Icon name="clock" :size="14" /></span>
+          <div class="kh-list__body">
+            <div class="kh-list__title">{{ b.name }}</div>
+            <div class="kh-list__text kh-mono">
+              {{ b.createdAt?.slice(0, 19).replace('T', ' ') || '—' }}
+              · {{ b.lines }} 行 · {{ fmtSize(b.size) }}
+              <span class="anx-tag kh-ml-sm">{{ reasonLabel(b.reason) }}</span>
             </div>
           </div>
-          <div class="bk-actions">
-            <button class="btn xs" title="预览" @click="previewBackup(b)">
-              <AppIcon name="eye" :size="12" />
+          <div class="kh-actions">
+            <button class="anx-iconbtn" title="预览" aria-label="预览备份" @click="previewBackup(b)">
+              <Icon name="eye" :size="15" />
             </button>
-            <button class="btn xs primary" @click="askRollback(b)">回滚</button>
-            <button class="btn xs danger-text" title="删除" @click="deleteBackup(b)">
-              <AppIcon name="trash" :size="12" />
+            <button class="anx-btn anx-btn--primary anx-btn--sm" @click="askRollback(b)">回滚</button>
+            <button
+              class="anx-iconbtn kh-danger-text"
+              title="删除"
+              aria-label="删除备份"
+              @click="deleteBackup(b)"
+            >
+              <Icon name="trash" :size="15" />
             </button>
           </div>
         </li>
@@ -776,711 +773,29 @@ onMounted(async () => {
 
     <!-- 备份预览 -->
     <AppModal v-model="previewOpen" :title="'预览 · ' + previewName" wide>
-      <div class="rawbox tall">
-        <code>{{ previewText }}</code>
-      </div>
+      <pre class="kh-pre kh-pre--plain">{{ previewText }}</pre>
     </AppModal>
 
     <!-- 回滚确认 -->
     <AppModal v-model="rollbackOpen" title="回滚 config" :dismissable="false">
-      <div v-if="rollbackTarget" class="confirm">
-        <div class="cf-icon warn"><AppIcon name="warning" :size="20" /></div>
-        <p class="cf-lead">
-          将把 <code>~/.ssh/config</code> 恢复为
-          <code>{{ rollbackTarget.name }}</code> 的内容。
+      <div v-if="rollbackTarget" class="kh-confirm">
+        <span class="kh-cf-icon kh-cf-icon--warn"><Icon name="alert-triangle" :size="20" /></span>
+        <p class="anx-t-sm">
+          将把 <code class="kh-code-inline">~/.ssh/config</code> 恢复为
+          <code class="kh-code-inline">{{ rollbackTarget.name }}</code> 的内容。
         </p>
-        <ul class="cf-list">
-          <li>当前文件会先被另存为一份 <code>rollback</code> 备份，操作可逆</li>
+        <ul class="kh-check-list">
+          <li>当前文件会先被另存为一份 <code class="kh-code-inline">rollback</code> 备份，操作可逆</li>
           <li v-if="dirty">你有未保存的编辑，回滚后这些改动将丢失</li>
         </ul>
       </div>
       <template #footer>
-        <button class="btn ghost" @click="rollbackOpen = false">取消</button>
-        <button class="btn primary" :disabled="rollingBack" @click="doRollback">
-          <span v-if="rollingBack" class="spin" />
+        <button class="anx-btn anx-btn--ghost" @click="rollbackOpen = false">取消</button>
+        <button class="anx-btn anx-btn--primary" :disabled="rollingBack" @click="doRollback">
+          <span v-if="rollingBack" class="anx-btn__spinner" />
           确认回滚
         </button>
       </template>
     </AppModal>
   </div>
 </template>
-
-<style scoped>
-.cfg {
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
-  /* 不要用固定 height:100%：它会把 .cfg-body 压进剩余高度，
-     配合 editor 的 overflow:hidden，表单会被拦腰截断。 */
-  min-height: 100%;
-}
-
-/* 顶部 */
-.cfg-head {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 14px;
-  flex-wrap: wrap;
-}
-.ch-left {
-  display: flex;
-  align-items: center;
-  gap: 14px;
-}
-.ch-path {
-  display: flex;
-  align-items: center;
-  gap: 9px;
-  color: var(--fg-muted);
-}
-.ch-path code {
-  font-family: var(--font-mono);
-  font-size: 12.5px;
-  color: var(--fg);
-}
-.ch-managed {
-  display: flex;
-  align-items: center;
-  gap: 5px;
-  font-size: 11.5px;
-  color: var(--success-ink);
-  background: var(--success-soft);
-  padding: 3px 9px;
-  border-radius: 20px;
-}
-.ch-right {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-}
-.seg.small button {
-  padding: 5px 13px;
-  font-size: 12px;
-}
-.badge {
-  background: var(--accent);
-  color: #fff;
-  font-size: 10px;
-  padding: 1px 5px;
-  border-radius: 20px;
-  font-family: var(--font-mono);
-  margin-left: 2px;
-}
-
-/* 主体三栏 */
-.cfg-body {
-  display: grid;
-  grid-template-columns: 308px minmax(0, 1fr) 336px;
-  gap: 16px;
-  align-items: start;
-  min-height: 0;
-}
-@media (max-width: 1360px) {
-  .cfg-body {
-    grid-template-columns: 280px minmax(0, 1fr);
-  }
-  .issues {
-    grid-column: 1 / -1;
-    /* 掉到下方时限制高度，保证保存栏在多数视口内直接可见 */
-    max-height: 62vh;
-  }
-}
-
-/* 左窗格 */
-.pane {
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-md);
-  overflow: hidden;
-  display: flex;
-  flex-direction: column;
-  max-height: calc(100vh - 220px);
-}
-.pane-head {
-  display: flex;
-  gap: 8px;
-  padding: 12px;
-  border-bottom: 1px solid var(--border);
-}
-.search.sm {
-  flex: 1;
-  height: 34px;
-  min-width: 0;
-  padding: 0 11px;
-}
-.btn.icon-only {
-  width: 34px;
-  padding: 0;
-  justify-content: center;
-  flex: 0 0 auto;
-}
-.pane-list {
-  flex: 1;
-  overflow-y: auto;
-  padding: 8px;
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-.pane-empty {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 9px;
-  padding: 32px 14px;
-  color: var(--fg-faint);
-  font-size: 12.5px;
-  text-align: center;
-}
-.host-item {
-  display: flex;
-  gap: 10px;
-  padding: 10px 11px;
-  background: transparent;
-  border: 1px solid transparent;
-  border-radius: var(--radius-sm);
-  cursor: pointer;
-  text-align: left;
-  transition: all 0.14s;
-  width: 100%;
-}
-.host-item:hover {
-  background: var(--surface-warm);
-}
-.host-item.on {
-  background: color-mix(in srgb, var(--accent) 7%, var(--surface));
-  border-color: color-mix(in srgb, var(--accent) 40%, var(--border));
-}
-.hi-ico {
-  width: 26px;
-  height: 26px;
-  border-radius: 8px;
-  display: grid;
-  place-items: center;
-  background: var(--surface-warm);
-  color: var(--fg-muted);
-  flex: 0 0 auto;
-}
-.host-item.on .hi-ico {
-  background: color-mix(in srgb, var(--accent) 12%, var(--surface));
-  color: var(--accent);
-}
-.hi-body {
-  flex: 1;
-  min-width: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-}
-.hi-name {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-}
-.hi-name strong {
-  font-size: 12.5px;
-  font-family: var(--font-mono);
-  color: var(--fg);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-.dot-err,
-.dot-warn {
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  flex: 0 0 auto;
-}
-.dot-err {
-  background: var(--danger);
-}
-.dot-warn {
-  background: var(--warn);
-}
-.hi-sub {
-  font-size: 11px;
-  color: var(--fg-faint);
-  font-family: var(--font-mono);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-.hi-note {
-  font-size: 10.5px;
-  color: var(--fg-faint);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-.pane-foot {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 9px 13px;
-  border-top: 1px solid var(--border);
-  font-size: 11px;
-  color: var(--fg-faint);
-  font-family: var(--font-mono);
-}
-.pf-warn {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  color: var(--warn);
-  font-family: var(--font-sans);
-}
-
-/* 编辑器 */
-.editor {
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-md);
-  overflow: hidden;
-  min-width: 0;
-}
-/* raw 模式没有左侧窗格：窄屏横跨整行；宽屏占前两列，校验清单留在第 3 列 */
-.editor.full {
-  grid-column: 1 / -1;
-}
-@media (min-width: 1361px) {
-  .editor.full {
-    grid-column: 1 / 3;
-  }
-}
-.ed-head {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  padding: 15px 18px;
-  border-bottom: 1px solid var(--border);
-}
-.ed-head h3 {
-  font-size: 15px;
-  margin: 0 0 3px;
-  color: var(--fg);
-  font-family: var(--font-mono);
-}
-.ed-sub {
-  font-size: 11.5px;
-  color: var(--fg-faint);
-}
-.ed-actions {
-  display: flex;
-  align-items: center;
-  gap: 7px;
-  flex: 0 0 auto;
-}
-.ed-form {
-  padding: 18px;
-  display: flex;
-  flex-direction: column;
-  gap: 17px;
-}
-.grid2 {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 14px;
-}
-@media (max-width: 1100px) {
-  .grid2 {
-    grid-template-columns: 1fr;
-  }
-}
-.field {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
-.field label {
-  font-size: 12.5px;
-  font-weight: 600;
-  color: var(--fg);
-}
-.req {
-  color: var(--danger);
-}
-.hint-row {
-  font-size: 11.5px;
-  color: var(--fg-faint);
-  margin: 0;
-  line-height: 1.6;
-}
-.hint-row code {
-  font-family: var(--font-mono);
-  background: var(--surface-warm);
-  padding: 1px 5px;
-  border-radius: 5px;
-  color: var(--accent);
-}
-.danger-text {
-  color: var(--danger);
-}
-.id-row {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-  gap: 9px;
-}
-@media (max-width: 900px) {
-  .id-row {
-    grid-template-columns: 1fr;
-  }
-}
-.extra-list {
-  display: flex;
-  flex-direction: column;
-  gap: 5px;
-  padding: 10px 12px;
-  background: var(--surface-warm);
-  border-radius: var(--radius-sm);
-}
-.extra-row {
-  display: flex;
-  gap: 10px;
-  font-size: 11.5px;
-}
-.extra-row code {
-  font-family: var(--font-mono);
-  color: var(--accent);
-  min-width: 110px;
-}
-.extra-row span {
-  color: var(--fg-muted);
-  font-family: var(--font-mono);
-  word-break: break-all;
-}
-
-.raw-editor {
-  width: 100%;
-  min-height: 520px;
-  padding: 18px;
-  border: none;
-  outline: none;
-  resize: vertical;
-  font-family: var(--font-mono);
-  font-size: 12.5px;
-  line-height: 1.75;
-  color: var(--fg);
-  background: var(--surface);
-  tab-size: 4;
-}
-
-/* 校验清单 */
-.issues {
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-md);
-  overflow: hidden;
-  display: flex;
-  flex-direction: column;
-  max-height: calc(100vh - 220px);
-}
-.is-head {
-  padding: 14px 16px;
-  border-bottom: 1px solid var(--border);
-  display: flex;
-  flex-direction: column;
-  gap: 9px;
-}
-.is-title {
-  font-size: 11px;
-  text-transform: uppercase;
-  letter-spacing: 0.07em;
-  color: var(--fg-faint);
-  font-family: var(--font-mono);
-}
-.is-counts {
-  display: flex;
-  gap: 6px;
-  flex-wrap: wrap;
-}
-.is-body {
-  flex: 1;
-  overflow-y: auto;
-  padding: 12px;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-.is-ok {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 8px;
-  padding: 30px 16px;
-  text-align: center;
-}
-.is-seal {
-  width: 46px;
-  height: 46px;
-  border-radius: 15px;
-  display: grid;
-  place-items: center;
-  background: var(--success-soft);
-  color: var(--success-ink);
-}
-.is-ok strong {
-  font-size: 13.5px;
-  color: var(--fg);
-}
-.is-ok p {
-  font-size: 12px;
-  color: var(--fg-faint);
-  margin: 0;
-  line-height: 1.6;
-}
-
-.issue {
-  display: flex;
-  gap: 9px;
-  padding: 10px 11px;
-  border-radius: var(--radius-sm);
-  border: 1px solid var(--border);
-  background: var(--surface-warm);
-}
-.issue.error {
-  border-color: color-mix(in srgb, var(--danger) 32%, var(--border));
-  background: color-mix(in srgb, var(--danger) 4%, var(--surface));
-}
-.issue.warn {
-  border-color: color-mix(in srgb, var(--warn) 32%, var(--border));
-  background: color-mix(in srgb, var(--warn) 4%, var(--surface));
-}
-.is-icon {
-  flex: 0 0 auto;
-  margin-top: 1px;
-}
-.issue.error .is-icon {
-  color: var(--danger);
-}
-.issue.warn .is-icon {
-  color: var(--warn);
-}
-.issue.info .is-icon {
-  color: var(--accent);
-}
-.is-text {
-  flex: 1;
-  min-width: 0;
-}
-.is-msg {
-  font-size: 12.5px;
-  color: var(--fg);
-  line-height: 1.55;
-  margin-bottom: 3px;
-}
-.is-hint {
-  font-size: 11.5px;
-  color: var(--fg-muted);
-  line-height: 1.6;
-}
-
-.is-save {
-  border-top: 1px solid var(--border);
-  padding: 13px 16px;
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-  background: var(--surface);
-}
-.dirty-tip {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  font-size: 11.5px;
-  color: var(--warn);
-}
-.dirty-tip.clean {
-  color: var(--fg-faint);
-}
-.save-row {
-  display: flex;
-  gap: 9px;
-}
-.save-row .btn {
-  flex: 1;
-}
-.is-block {
-  font-size: 11px;
-  color: var(--danger);
-  margin: 0;
-  line-height: 1.5;
-}
-
-/* 空态 */
-.empty {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 10px;
-  padding: 56px 20px;
-  text-align: center;
-  color: var(--fg-muted);
-}
-.empty > :deep(svg) {
-  color: var(--fg-faint);
-}
-.empty p {
-  margin: 0;
-  font-size: 14px;
-  color: var(--fg);
-  font-weight: 600;
-}
-.empty span {
-  font-size: 12.5px;
-  color: var(--fg-faint);
-}
-.empty-seal {
-  width: 58px;
-  height: 58px;
-  border-radius: 19px;
-  display: grid;
-  place-items: center;
-  background: var(--surface-warm);
-  color: var(--fg-faint);
-}
-.row {
-  display: flex;
-  gap: 9px;
-  margin-top: 4px;
-}
-.mono-sm {
-  font-family: var(--font-mono);
-  font-size: 11.5px;
-  color: var(--fg-faint);
-}
-
-/* 备份列表 */
-.bk-list {
-  list-style: none;
-  padding: 0;
-  margin: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-.bk-item {
-  display: flex;
-  gap: 11px;
-  padding: 12px 13px;
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
-  align-items: center;
-}
-.bk-ico {
-  width: 30px;
-  height: 30px;
-  border-radius: 9px;
-  display: grid;
-  place-items: center;
-  background: var(--surface-warm);
-  color: var(--fg-muted);
-  flex: 0 0 auto;
-}
-.bk-body {
-  flex: 1;
-  min-width: 0;
-}
-.bk-name {
-  font-family: var(--font-mono);
-  font-size: 11.5px;
-  color: var(--fg);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  margin-bottom: 4px;
-}
-.bk-meta {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  font-size: 10.5px;
-  color: var(--fg-faint);
-  flex-wrap: wrap;
-}
-.sep-dot {
-  color: var(--border);
-}
-.tag.sm {
-  font-size: 10px;
-  padding: 1px 6px;
-}
-.bk-actions {
-  display: flex;
-  gap: 5px;
-  flex: 0 0 auto;
-}
-.btn.xs {
-  height: 26px;
-  padding: 0 9px;
-  font-size: 11.5px;
-  border-radius: 7px;
-}
-
-/* 确认弹窗 */
-.confirm {
-  display: flex;
-  flex-direction: column;
-  gap: 13px;
-}
-.cf-icon {
-  width: 46px;
-  height: 46px;
-  border-radius: 15px;
-  display: grid;
-  place-items: center;
-  align-self: flex-start;
-  background: var(--success-soft);
-  color: var(--success-ink);
-}
-.cf-icon.warn {
-  background: var(--warn-soft);
-  color: var(--warn);
-}
-.cf-lead {
-  font-size: 13.5px;
-  color: var(--fg);
-  margin: 0;
-  line-height: 1.7;
-}
-.cf-lead code {
-  font-family: var(--font-mono);
-  font-size: 12px;
-  background: var(--surface-warm);
-  padding: 1px 5px;
-  border-radius: 5px;
-  color: var(--accent);
-}
-.cf-list {
-  margin: 0;
-  padding-left: 18px;
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
-.cf-list li {
-  font-size: 12.5px;
-  color: var(--fg-muted);
-  line-height: 1.6;
-}
-.cf-list code {
-  font-family: var(--font-mono);
-  background: var(--surface-warm);
-  padding: 1px 4px;
-  border-radius: 4px;
-}
-.rawbox.tall {
-  max-height: 460px;
-  overflow: auto;
-}
-.rawbox.tall code {
-  white-space: pre-wrap;
-  word-break: break-all;
-  line-height: 1.7;
-  font-size: 11.5px;
-}
-</style>

@@ -34,6 +34,8 @@ const prefs = reactive({
   /** 后端是否成功读过偏好；false 表示后端未就绪（此时不能劫持到引导页） */
   available: false,
   theme: 'system',
+  titlebarStyle: 'auto',
+  autoCheckUpdates: false,
   locale: 'zh-CN',
   autoFixPerms: true,
   autoBackupConfig: true,
@@ -165,6 +167,8 @@ async function savePrefs(patch = {}) {
 function toRawPrefs() {
   return {
     theme: prefs.theme,
+    titlebarStyle: prefs.titlebarStyle,
+    autoCheckUpdates: prefs.autoCheckUpdates,
     locale: prefs.locale,
     autoFixPerms: prefs.autoFixPerms,
     autoBackupConfig: prefs.autoBackupConfig,

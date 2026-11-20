@@ -13,7 +13,11 @@ import { getCurrentWindow } from '@tauri-apps/api/window'
 import * as api from '../lib/api'
 import { useEnvStore } from '../lib/store'
 import { useToast } from '../lib/toast'
-import AppIcon from '../components/AppIcon.vue'
+import Icon from '../design/vue/ui/Icon.vue'
+import BrandMark from '../components/BrandMark.vue'
+import AlertBox from '../design/vue/ui/AlertBox.vue'
+import EmptyState from '../design/vue/ui/EmptyState.vue'
+import AppModal from '../components/AppModal.vue'
 
 const router = useRouter()
 const toast = useToast()
@@ -269,723 +273,284 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <div class="onb">
+  <div class="kh-onb">
     <!-- 顶部品牌区 -->
-    <header class="onb-head" data-tauri-drag-region>
-      <div class="brand">
-        <span class="logo-seal lg"><AppIcon name="key" :size="20" /></span>
-        <div class="brand-text">
-          <strong>墨钥 KeyHub</strong>
-          <span>SSH 密钥可视化管理 · 零命令行</span>
+    <header class="kh-onb__head" data-tauri-drag-region>
+      <div class="kh-onb__brand">
+        <span class="kh-brand-mark"><BrandMark /></span>
+        <div>
+          <div class="anx-t-strong">墨钥 KeyHub</div>
+          <div class="anx-t-xs anx-t-muted">SSH 密钥可视化管理 · 零命令行</div>
         </div>
       </div>
-      <div class="ob-head-actions">
-        <button v-if="isDesktop" class="win-btn" aria-label="最小化" title="最小化" @click="winMin">
-          <AppIcon name="minimize" :size="14" :width="1.7" />
+      <div class="kh-onb__head-actions">
+        <button
+          v-if="isDesktop"
+          class="anx-iconbtn"
+          aria-label="最小化"
+          title="最小化"
+          @click="winMin"
+        >
+          <Icon name="minimize" :size="15" />
         </button>
-        <button v-if="isDesktop" class="win-btn close" aria-label="关闭" title="关闭" @click="winClose">
-          <AppIcon name="close" :size="13" :width="1.7" />
+        <button
+          v-if="isDesktop"
+          class="anx-iconbtn kh-win-btn--close"
+          aria-label="关闭"
+          title="关闭"
+          @click="winClose"
+        >
+          <Icon name="close" :size="15" />
         </button>
-        <button class="btn ghost sm" @click="skip">跳过引导</button>
+        <button class="anx-btn anx-btn--ghost anx-btn--sm" @click="skip">跳过引导</button>
       </div>
     </header>
 
-    <!-- 步骤指示器 -->
-    <nav class="steps">
-      <div
-        v-for="(s, i) in ['环境检测', '导入密钥', '准备就绪']"
-        :key="s"
-        class="step"
-        :class="{ on: step === i + 1, done: step > i + 1 }"
-      >
-        <span class="dot">
-          <AppIcon v-if="step > i + 1" name="check" :size="12" />
-          <template v-else>{{ i + 1 }}</template>
-        </span>
-        <span class="lbl">{{ s }}</span>
-        <span v-if="i < 2" class="line" />
-      </div>
-    </nav>
-
-    <!-- ══════ 第 1 步 ══════ -->
-    <section v-if="step === 1" class="pane">
-      <div class="pane-head">
-        <h1>先确认一下你的环境</h1>
-        <p>
-          墨钥全程调用系统原生 <code>ssh</code> / <code>ssh-keygen</code>，
-          不引入任何第三方 SSH 实现，也不会上传你的任何数据。
-        </p>
-      </div>
-
-      <div v-if="detectError" class="banner danger">
-        <AppIcon name="warning" :size="16" />
-        <div>
-          <strong>无法完成环境检测</strong>
-          <p>{{ detectError.message }}</p>
-          <p>这不代表 OpenSSH 或 Git 缺失。可重新检测，或先跳过引导进入主界面。</p>
-          <button class="btn sm" @click="runDetect">重新检测</button>
+    <div class="kh-onb__body">
+      <!-- 步骤指示器 -->
+      <nav class="kh-steps" aria-label="引导步骤">
+        <div
+          v-for="(s, i) in ['环境检测', '导入密钥', '准备就绪']"
+          :key="s"
+          class="kh-step"
+          :class="{ 'is-on': step === i + 1, 'is-done': step > i + 1 }"
+          :aria-current="step === i + 1 ? 'step' : undefined"
+        >
+          <span class="kh-step__dot">
+            <Icon v-if="step > i + 1" name="check" :size="13" />
+            <template v-else>{{ i + 1 }}</template>
+          </span>
+          <span class="kh-step__label">{{ s }}</span>
+          <span v-if="i < 2" class="kh-step__line" />
         </div>
-      </div>
+      </nav>
 
-      <ul class="checks">
-        <li v-for="c in checks" :key="c.key" class="check-item" :class="c.ok ? 'ok' : detectError ? 'unknown' : 'bad'">
-          <span class="ci-icon"><AppIcon :name="c.icon" :size="18" /></span>
-          <div class="ci-body">
-            <div class="ci-title">
-              <strong>{{ c.title }}</strong>
-              <span
-                class="pill"
-                :class="
-                  progress[c.key] === -1
-                    ? 'danger'
-                    : progress[c.key] < 2
-                      ? 'idle'
-                      : c.ok
-                        ? 'ok'
-                        : c.key === 'git' || c.key === 'agent'
-                          ? 'idle'
-                          : 'danger'
-                "
-              >
-                <span v-if="progress[c.key] >= 0 && progress[c.key] < 2" class="spin" />
-                {{ progress[c.key] === -1 ? '检测失败' : progress[c.key] < 2 ? '检测中' : c.value }}
-              </span>
-            </div>
-            <p class="ci-desc">{{ c.desc }}</p>
-            <p class="ci-hint">{{ c.hint }}</p>
+      <!-- ══════ 第 1 步 ══════ -->
+      <section v-if="step === 1" class="anx-panel kh-onb__pane">
+        <div class="anx-panel__body kh-onb__pane-body">
+          <div class="kh-onb__intro">
+            <h1 class="anx-t-h1">先确认一下你的环境</h1>
+            <p class="anx-t-sm anx-t-muted">
+              墨钥全程调用系统原生 <code class="kh-code-inline">ssh</code> /
+              <code class="kh-code-inline">ssh-keygen</code>，不引入任何第三方 SSH 实现，也不会上传你的任何数据。
+            </p>
           </div>
-        </li>
-      </ul>
 
-      <div v-if="!detecting && report && !report.preferred" class="banner warn">
-        <AppIcon name="warning" :size="16" />
-        <div>
-          <strong>未检测到可用的 SSH 客户端</strong>
-          <p>墨钥依赖系统 OpenSSH 完成密钥生成与连接测试，请先安装。</p>
-          <div class="row">
-            <button class="btn primary sm" @click="loadGuide">查看安装指引</button>
-            <button
-              v-if="report.platform === 'windows'"
-              class="btn sm"
-              :disabled="enabling"
-              @click="enableOpenSsh"
+          <AlertBox
+            v-if="detectError"
+            tone="danger"
+            title="无法完成环境检测"
+            :lines="[
+              detectError.message,
+              '这不代表 OpenSSH 或 Git 缺失。可重新检测，或先跳过引导进入主界面。',
+            ]"
+          />
+
+          <ul class="kh-list">
+            <li
+              v-for="c in checks"
+              :key="c.key"
+              class="kh-list__item kh-onb-check"
+              :class="c.ok ? 'is-ok' : detectError ? 'is-unknown' : c.key === 'git' || c.key === 'agent' ? 'is-unknown' : 'is-bad'"
             >
-              <span v-if="enabling" class="spin" />
-              一键启用系统 OpenSSH
-            </button>
+              <span class="kh-onb-check__icon"><Icon :name="c.icon" :size="18" /></span>
+              <div class="kh-list__body">
+                <div class="kh-list__title">
+                  {{ c.title }}
+                  <span
+                    class="anx-badge"
+                    :class="
+                      progress[c.key] === -1
+                        ? 'anx-badge--danger'
+                        : progress[c.key] < 2
+                          ? 'anx-badge--neutral'
+                          : c.ok
+                            ? 'anx-badge--ok'
+                            : c.key === 'git' || c.key === 'agent'
+                              ? 'anx-badge--neutral'
+                              : 'anx-badge--danger'
+                    "
+                  >
+                    <span v-if="progress[c.key] >= 0 && progress[c.key] < 2" class="anx-btn__spinner" />
+                    {{ progress[c.key] === -1 ? '检测失败' : progress[c.key] < 2 ? '检测中' : c.value }}
+                  </span>
+                </div>
+                <p class="kh-list__text">{{ c.desc }}</p>
+                <p class="kh-list__text kh-fine">{{ c.hint }}</p>
+              </div>
+            </li>
+          </ul>
+
+          <div v-if="!detecting && report && !report.preferred" class="anx-alert anx-alert--warn">
+            <Icon name="alert-triangle" :size="18" />
+            <div class="anx-alert__body">
+              <p class="anx-alert__title">未检测到可用的 SSH 客户端</p>
+              <p class="anx-alert__text">墨钥依赖系统 OpenSSH 完成密钥生成与连接测试，请先安装。</p>
+              <div class="kh-actions kh-mt-sm">
+                <button class="anx-btn anx-btn--primary anx-btn--sm" @click="loadGuide">查看安装指引</button>
+                <button
+                  v-if="report.platform === 'windows'"
+                  class="anx-btn anx-btn--sm"
+                  :disabled="enabling"
+                  @click="enableOpenSsh"
+                >
+                  <span v-if="enabling" class="anx-btn__spinner" />
+                  一键启用系统 OpenSSH
+                </button>
+              </div>
+            </div>
           </div>
         </div>
-      </div>
-    </section>
+      </section>
 
-    <!-- ══════ 第 2 步 ══════ -->
-    <section v-else-if="step === 2" class="pane">
-      <div class="pane-head">
-        <h1>发现这些已有密钥</h1>
-        <p>
-          墨钥只<strong>读取</strong> <code>~/.ssh</code> 下已存在的文件用于展示，
-          不会复制、移动或上传。勾选仅表示「希望在墨钥中看到它」。
-        </p>
-      </div>
+      <!-- ══════ 第 2 步 ══════ -->
+      <section v-else-if="step === 2" class="anx-panel kh-onb__pane">
+        <div class="anx-panel__body kh-onb__pane-body">
+          <div class="kh-onb__intro">
+            <h1 class="anx-t-h1">发现这些已有密钥</h1>
+            <p class="anx-t-sm anx-t-muted">
+              墨钥只<strong>读取</strong> <code class="kh-code-inline">~/.ssh</code>
+              下已存在的文件用于展示，不会复制、移动或上传。勾选仅表示「希望在墨钥中看到它」。
+            </p>
+          </div>
 
-      <div v-if="scanning" class="empty">
-        <span class="spin lg" />
-        <p>正在扫描 ~/.ssh …</p>
-      </div>
+          <div v-if="scanning" class="anx-empty kh-empty-inline">
+            <span class="kh-spin kh-spin--lg" />
+            <p class="anx-empty__title">正在扫描 ~/.ssh …</p>
+          </div>
 
-      <div v-else-if="scanError" class="banner danger">
-        <AppIcon name="warning" :size="16" />
-        <div>
-          <strong>扫描失败</strong>
-          <p>{{ scanError.message }}</p>
-          <button class="btn sm" @click="runScan">重试</button>
-        </div>
-      </div>
+          <AlertBox
+            v-else-if="scanError"
+            tone="danger"
+            title="扫描失败"
+            :text="scanError.message"
+          />
 
-      <div v-else-if="keys.length === 0" class="empty">
-        <AppIcon name="key" :size="28" />
-        <p>还没有任何密钥</p>
-        <span>没关系，下一步可以立即生成一把新的。</span>
-      </div>
+          <EmptyState
+            v-else-if="keys.length === 0"
+            icon="key"
+            title="还没有任何密钥"
+            text="没关系，下一步可以立即生成一把新的。"
+          />
 
-      <template v-else>
-        <div class="list-head">
-          <label class="checkbox">
-            <input type="checkbox" :checked="allSelected" @change="toggleAll" />
-            <span>全选（{{ selected.size }} / {{ keys.length }}）</span>
-          </label>
-        </div>
-        <ul class="key-list">
-          <li
-            v-for="k in keys"
-            :key="k.filename"
-            class="key-row"
-            :class="{ on: selected.has(k.filename) }"
-            @click="toggle(k.filename)"
-          >
-            <label class="checkbox" @click.stop>
-              <input
-                type="checkbox"
-                :checked="selected.has(k.filename)"
-                @change="toggle(k.filename)"
-              />
-            </label>
-            <span class="k-icon"><AppIcon name="key" :size="16" /></span>
-            <div class="k-main">
-              <div class="k-name">
-                <strong>{{ k.filename }}</strong>
-                <span class="tag">{{ k.algorithm }}</span>
-                <span v-if="k.hasPassphrase" class="tag warn">有口令</span>
-                <span v-if="!k.hasPublic" class="tag">无公钥</span>
-              </div>
-              <code class="k-fp">{{ k.fingerprint || '指纹不可用' }}</code>
-            </div>
-            <div class="k-meta">
-              <span class="pill" :class="k.permCompliant ? 'ok' : 'warn'">
-                {{ k.permDisplay || '—' }}
+          <template v-else>
+            <label class="anx-checkline">
+              <input type="checkbox" :checked="allSelected" @change="toggleAll" />
+              <span class="anx-checkline__text">
+                全选（{{ selected.size }} / {{ keys.length }}）
               </span>
-              <span class="k-time">{{ (k.createdAt || '').slice(0, 10) || '—' }}</span>
-            </div>
-          </li>
-        </ul>
-      </template>
-    </section>
+            </label>
 
-    <!-- ══════ 第 3 步 ══════ -->
-    <section v-else class="pane">
-      <div class="done">
-        <span class="done-seal"><AppIcon name="check" :size="30" /></span>
-        <h1>一切就绪</h1>
-        <p>墨钥已经了解你的环境，接下来可以：</p>
-        <ul class="done-list">
-          <li><AppIcon name="key" :size="15" /> 生成或管理密钥，一键复制公钥部署到服务器</li>
-          <li><AppIcon name="config" :size="15" /> 可视化编辑 connections，改完自动备份</li>
-          <li><AppIcon name="pulse" :size="15" /> 测试连通性，失败时给出可执行的修复建议</li>
-          <li><AppIcon name="shield" :size="15" /> 体检权限与 agent 状态，守住安全底线</li>
-        </ul>
-        <p class="fine">
-          你的密钥始终保存在 <code>~/.ssh</code>，墨钥不持有任何私钥副本，
-          也不会发起未经你确认的网络请求。
-        </p>
-      </div>
-    </section>
+            <ul class="kh-keypick">
+              <li
+                v-for="k in keys"
+                :key="k.filename"
+                class="kh-keypick__row"
+                :class="{ 'is-on': selected.has(k.filename) }"
+                @click="toggle(k.filename)"
+              >
+                <label class="anx-checkline" @click.stop>
+                  <input
+                    type="checkbox"
+                    :checked="selected.has(k.filename)"
+                    @change="toggle(k.filename)"
+                  />
+                  <span class="anx-visually-hidden">选择 {{ k.filename }}</span>
+                </label>
+                <span class="kh-host-item__ico"><Icon name="key" :size="16" /></span>
+                <div class="kh-grow">
+                  <div class="kh-actions">
+                    <strong class="kh-mono">{{ k.filename }}</strong>
+                    <span class="anx-tag">{{ k.algorithm }}</span>
+                    <span v-if="k.hasPassphrase" class="anx-tag anx-tag--warn">有口令</span>
+                    <span v-if="!k.hasPublic" class="anx-tag">无公钥</span>
+                  </div>
+                  <code class="kh-onb__fp">{{ k.fingerprint || '指纹不可用' }}</code>
+                </div>
+                <div class="kh-keypick__meta">
+                  <span class="anx-badge" :class="k.permCompliant ? 'anx-badge--ok' : 'anx-badge--warn'">
+                    {{ k.permDisplay || '—' }}
+                  </span>
+                  <span class="anx-t-xs anx-t-muted">{{ (k.createdAt || '').slice(0, 10) || '—' }}</span>
+                </div>
+              </li>
+            </ul>
+          </template>
+        </div>
+      </section>
 
-    <!-- 底部操作栏 -->
-    <footer class="onb-foot">
-      <button v-if="step > 1" class="btn ghost" @click="prev">上一步</button>
-      <span v-else />
-      <div class="foot-right">
-        <span v-if="step === 1 && detectError" class="step-hint hint-danger">
-          检测失败，可重新检测或跳过引导
-        </span>
-        <span class="step-hint">第 {{ step }} / 3 步</span>
-        <button v-if="step < 3" class="btn primary" :disabled="!canNext" @click="next">
-          下一步
-        </button>
-        <button v-else class="btn primary" :disabled="finishing" @click="finish">
-          <span v-if="finishing" class="spin" />
-          进入密钥库
-        </button>
-      </div>
-    </footer>
+      <!-- ══════ 第 3 步 ══════ -->
+      <section v-else class="anx-panel kh-onb__pane">
+        <div class="anx-panel__body kh-onb__pane-body kh-onb__done">
+          <span class="kh-onb__seal"><Icon name="check" :size="30" /></span>
+          <h1 class="anx-t-h1">一切就绪</h1>
+          <p class="anx-t-sm anx-t-muted">墨钥已经了解你的环境，接下来可以：</p>
+          <ul class="kh-list">
+            <li class="kh-list__item">
+              <Icon name="key" :size="16" />
+              <span>生成或管理密钥，一键复制公钥部署到服务器</span>
+            </li>
+            <li class="kh-list__item">
+              <Icon name="file-text" :size="16" />
+              <span>可视化编辑 connections，改完自动备份</span>
+            </li>
+            <li class="kh-list__item">
+              <Icon name="activity" :size="16" />
+              <span>测试连通性，失败时给出可执行的修复建议</span>
+            </li>
+            <li class="kh-list__item">
+              <Icon name="shield" :size="16" />
+              <span>体检权限与 agent 状态，守住安全底线</span>
+            </li>
+          </ul>
+          <p class="kh-fine">
+            你的密钥始终保存在 <code class="kh-code-inline">~/.ssh</code>，墨钥不持有任何私钥副本，
+            也不会发起未经你确认的网络请求。
+          </p>
+        </div>
+      </section>
+
+      <!-- 底部操作栏 -->
+      <footer class="kh-onb__foot">
+        <button v-if="step > 1" class="anx-btn anx-btn--ghost" @click="prev">上一步</button>
+        <span v-else />
+        <div class="kh-actions">
+          <span v-if="step === 1 && detectError" class="kh-fine kh-danger-text">
+            检测失败，可重新检测或跳过引导
+          </span>
+          <span class="kh-fine">第 {{ step }} / 3 步</span>
+          <button v-if="step < 3" class="anx-btn anx-btn--primary" :disabled="!canNext" @click="next">
+            下一步
+          </button>
+          <button v-else class="anx-btn anx-btn--primary" :disabled="finishing" @click="finish">
+            <span v-if="finishing" class="anx-btn__spinner" />
+            进入密钥库
+          </button>
+        </div>
+      </footer>
+    </div>
 
     <!-- 安装指引弹窗 -->
-    <Teleport to="body">
-      <Transition name="fade">
-        <div v-if="showGuide && guide" class="modal-wrap" @click.self="showGuide = false">
-          <div class="modal">
-            <header class="modal-head">
-              <h3>{{ guide.title }}</h3>
-              <button class="icon-btn" @click="showGuide = false">
-                <AppIcon name="close" :size="15" />
+    <AppModal v-model="showGuide" :title="guide?.title || 'OpenSSH 安装指引'">
+      <div class="kh-guide">
+        <div v-for="(s, i) in guide?.steps || []" :key="i" class="kh-guide__step">
+          <span class="kh-guide__num">{{ i + 1 }}</span>
+          <div class="kh-grow">
+            <strong>{{ s.title }}</strong>
+            <p class="anx-t-xs anx-t-muted">{{ s.note }}</p>
+            <div v-if="s.command" class="kh-cmd">
+              <code class="anx-code anx-code--wrap">{{ s.command }}</code>
+              <button
+                class="anx-copybtn kh-cmd__copy"
+                aria-label="复制命令"
+                @click="toast.copy(s.command, '命令已复制')"
+              >
+                <Icon name="copy" :size="14" />
               </button>
-            </header>
-            <div class="modal-body">
-              <div v-for="(s, i) in guide.steps" :key="i" class="guide-step">
-                <span class="gs-num">{{ i + 1 }}</span>
-                <div>
-                  <strong>{{ s.title }}</strong>
-                  <p>{{ s.note }}</p>
-                  <div v-if="s.command" class="rawbox">
-                    <code>{{ s.command }}</code>
-                    <button class="copy-mini" @click="useToast().copy(s.command, '命令已复制')">
-                      <AppIcon name="copy" :size="13" />
-                    </button>
-                  </div>
-                </div>
-              </div>
             </div>
           </div>
         </div>
-      </Transition>
-    </Teleport>
+      </div>
+    </AppModal>
   </div>
 </template>
-
-<style scoped>
-.onb {
-  min-height: 100vh;
-  display: flex;
-  flex-direction: column;
-  background: var(--bg);
-  padding: 0 32px 24px;
-  max-width: 940px;
-  margin: 0 auto;
-}
-
-.onb-head {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 22px 0 8px;
-}
-.ob-head-actions {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-}
-.brand {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-}
-.logo-seal.lg {
-  width: 38px;
-  height: 38px;
-  border-radius: 12px;
-}
-.brand-text {
-  display: flex;
-  flex-direction: column;
-  line-height: 1.3;
-}
-.brand-text strong {
-  font-size: 15px;
-  color: var(--fg);
-}
-.brand-text span {
-  font-size: 12px;
-  color: var(--fg-muted);
-}
-
-/* 步骤条 */
-.steps {
-  display: flex;
-  align-items: center;
-  gap: 0;
-  margin: 18px 0 26px;
-}
-.step {
-  display: flex;
-  align-items: center;
-  gap: 9px;
-  flex: 1;
-}
-.step:last-child {
-  flex: 0 0 auto;
-}
-.dot {
-  width: 26px;
-  height: 26px;
-  border-radius: 50%;
-  display: grid;
-  place-items: center;
-  font-size: 12px;
-  font-family: var(--font-mono);
-  background: var(--surface-warm);
-  color: var(--fg-muted);
-  border: 1px solid var(--border);
-  transition: all 0.25s ease;
-  flex: 0 0 auto;
-}
-.step.on .dot {
-  background: var(--accent);
-  color: #fff;
-  border-color: var(--accent);
-  box-shadow: 0 0 0 4px color-mix(in srgb, var(--accent) 18%, transparent);
-}
-.step.done .dot {
-  background: var(--success);
-  color: #fff;
-  border-color: var(--success);
-}
-.lbl {
-  font-size: 13px;
-  color: var(--fg-muted);
-  white-space: nowrap;
-}
-.step.on .lbl {
-  color: var(--fg);
-  font-weight: 600;
-}
-.line {
-  flex: 1;
-  height: 1px;
-  background: var(--border);
-  margin: 0 12px;
-}
-
-.pane {
-  flex: 1;
-  min-height: 0;
-}
-.pane-head {
-  margin-bottom: 20px;
-}
-.pane-head h1 {
-  font-size: 21px;
-  margin: 0 0 8px;
-  color: var(--fg);
-  letter-spacing: -0.01em;
-}
-.pane-head p {
-  font-size: 13.5px;
-  line-height: 1.7;
-  color: var(--fg-muted);
-  margin: 0;
-  max-width: 640px;
-}
-.pane-head code {
-  font-family: var(--font-mono);
-  font-size: 12.5px;
-  background: var(--surface-warm);
-  padding: 1px 5px;
-  border-radius: 5px;
-  color: var(--accent);
-}
-
-/* 检测项列表 */
-.checks {
-  list-style: none;
-  padding: 0;
-  margin: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-}
-.check-item {
-  display: flex;
-  gap: 14px;
-  padding: 15px 17px;
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-md);
-  transition: border-color 0.2s;
-}
-.check-item.bad {
-  border-color: color-mix(in srgb, var(--warn) 34%, var(--border));
-}
-.check-item.ok {
-  border-color: color-mix(in srgb, var(--success) 26%, var(--border));
-}
-.check-item.unknown {
-  border-color: var(--border);
-}
-.ci-icon {
-  width: 34px;
-  height: 34px;
-  border-radius: 10px;
-  display: grid;
-  place-items: center;
-  background: var(--surface-warm);
-  color: var(--fg-muted);
-  flex: 0 0 auto;
-}
-.check-item.ok .ci-icon {
-  background: var(--success-soft);
-  color: var(--success-ink);
-}
-.ci-body {
-  flex: 1;
-  min-width: 0;
-}
-.ci-title {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  margin-bottom: 3px;
-}
-.ci-title strong {
-  font-size: 14px;
-  color: var(--fg);
-}
-.ci-desc {
-  font-size: 12.5px;
-  color: var(--fg-muted);
-  margin: 0 0 3px;
-}
-.ci-hint {
-  font-size: 12px;
-  color: var(--fg-faint);
-  margin: 0;
-  line-height: 1.55;
-}
-
-/* 密钥列表 */
-.list-head {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 0 4px 10px;
-}
-.checkbox {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  font-size: 13px;
-  color: var(--fg-muted);
-  cursor: pointer;
-  user-select: none;
-}
-.checkbox input {
-  width: 15px;
-  height: 15px;
-  accent-color: var(--accent);
-  cursor: pointer;
-}
-.key-list {
-  list-style: none;
-  padding: 0;
-  margin: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-.key-row {
-  display: flex;
-  align-items: center;
-  gap: 13px;
-  padding: 12px 15px;
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-md);
-  cursor: pointer;
-  transition: all 0.16s;
-}
-.key-row:hover {
-  border-color: color-mix(in srgb, var(--accent) 40%, var(--border));
-}
-.key-row.on {
-  border-color: color-mix(in srgb, var(--accent) 55%, var(--border));
-  background: color-mix(in srgb, var(--accent) 5%, var(--surface));
-}
-.k-icon {
-  width: 30px;
-  height: 30px;
-  border-radius: 9px;
-  display: grid;
-  place-items: center;
-  background: var(--accent-soft, color-mix(in srgb, var(--accent) 10%, var(--surface)));
-  color: var(--accent);
-  flex: 0 0 auto;
-}
-.k-main {
-  flex: 1;
-  min-width: 0;
-}
-.k-name {
-  display: flex;
-  align-items: center;
-  gap: 7px;
-  flex-wrap: wrap;
-  margin-bottom: 3px;
-}
-.k-name strong {
-  font-size: 13.5px;
-  color: var(--fg);
-}
-.k-fp {
-  font-family: var(--font-mono);
-  font-size: 11px;
-  color: var(--fg-faint);
-  display: block;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-.k-meta {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-end;
-  gap: 4px;
-  flex: 0 0 auto;
-}
-.k-time {
-  font-size: 11px;
-  color: var(--fg-faint);
-  font-family: var(--font-mono);
-}
-
-/* 完成页 */
-.done {
-  text-align: center;
-  padding: 34px 0;
-  max-width: 560px;
-  margin: 0 auto;
-}
-.done-seal {
-  width: 68px;
-  height: 68px;
-  border-radius: 22px;
-  display: inline-grid;
-  place-items: center;
-  background: var(--success-soft);
-  color: var(--success-ink);
-  margin-bottom: 18px;
-}
-.done h1 {
-  font-size: 23px;
-  margin: 0 0 10px;
-  color: var(--fg);
-}
-.done > p {
-  font-size: 13.5px;
-  color: var(--fg-muted);
-  margin: 0 0 20px;
-}
-.done-list {
-  list-style: none;
-  padding: 0;
-  margin: 0 0 20px;
-  text-align: left;
-  display: flex;
-  flex-direction: column;
-  gap: 11px;
-}
-.done-list li {
-  display: flex;
-  align-items: flex-start;
-  gap: 10px;
-  font-size: 13px;
-  color: var(--fg);
-  padding: 11px 14px;
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
-  line-height: 1.55;
-}
-.done-list li :deep(svg) {
-  color: var(--accent);
-  flex: 0 0 auto;
-  margin-top: 1px;
-}
-.fine {
-  font-size: 12px;
-  color: var(--fg-faint);
-  line-height: 1.7;
-}
-.fine code {
-  font-family: var(--font-mono);
-  background: var(--surface-warm);
-  padding: 1px 5px;
-  border-radius: 5px;
-}
-
-/* 底部栏 */
-.onb-foot {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding-top: 22px;
-  margin-top: 22px;
-  border-top: 1px solid var(--border);
-}
-.foot-right {
-  display: flex;
-  align-items: center;
-  gap: 14px;
-}
-.step-hint {
-  font-size: 12px;
-  color: var(--fg-faint);
-  font-family: var(--font-mono);
-}
-.step-hint.hint-danger {
-  color: var(--danger-ink);
-  font-family: var(--font-body);
-}
-
-/* 空态 */
-.empty {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 10px;
-  padding: 56px 20px;
-  color: var(--fg-muted);
-  text-align: center;
-}
-.empty > :deep(svg) {
-  color: var(--fg-faint);
-}
-.empty p {
-  margin: 0;
-  font-size: 14px;
-  color: var(--fg);
-}
-.empty span {
-  font-size: 12.5px;
-  color: var(--fg-faint);
-}
-
-/* 引导步骤 */
-.guide-step {
-  display: flex;
-  gap: 13px;
-  padding: 13px 0;
-  border-bottom: 1px dashed var(--border);
-}
-.guide-step:last-child {
-  border-bottom: none;
-}
-.gs-num {
-  width: 22px;
-  height: 22px;
-  border-radius: 7px;
-  background: var(--surface-warm);
-  color: var(--fg-muted);
-  display: grid;
-  place-items: center;
-  font-size: 11.5px;
-  font-family: var(--font-mono);
-  flex: 0 0 auto;
-}
-.guide-step strong {
-  font-size: 13.5px;
-  color: var(--fg);
-  display: block;
-  margin-bottom: 4px;
-}
-.guide-step p {
-  font-size: 12.5px;
-  color: var(--fg-muted);
-  margin: 0 0 8px;
-  line-height: 1.6;
-}
-
-.icon-btn {
-  width: 28px;
-  height: 28px;
-  border-radius: 8px;
-  border: 1px solid var(--border);
-  background: var(--surface);
-  color: var(--fg-muted);
-  display: grid;
-  place-items: center;
-  cursor: pointer;
-}
-.icon-btn:hover {
-  color: var(--fg);
-  border-color: var(--fg-faint);
-}
-
-.fade-enter-active,
-.fade-leave-active {
-  transition: opacity 0.18s ease;
-}
-.fade-enter-from,
-.fade-leave-to {
-  opacity: 0;
-}
-</style>

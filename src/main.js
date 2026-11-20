@@ -1,12 +1,13 @@
 import { createApp } from 'vue'
 import { createRouter, createWebHashHistory } from 'vue-router'
 
-import './styles/tokens.css'
-import './styles/base.css'
-import './styles/shell.css'
+/* 鉴枢设计系统 · 引入顺序即依赖顺序：fonts → tokens → brand → base → components → motion → shell */
+import './design/fonts/fonts.css'
+import './design/css/index.css'
+/* 墨钥自有样式：只放业务布局补充，引入在资产之后 */
+import './styles/app.css'
 
 import App from './App.vue'
-import { installToast } from './lib/toast.js'
 import { useTheme } from './lib/theme.js'
 
 import Onboarding from './views/Onboarding.vue'
@@ -53,8 +54,8 @@ router.beforeEach(async (to) => {
 
 const app = createApp(App)
 app.use(router)
-installToast(app)
 
+// 主题由 index.html 首帧预置，这里只同步响应式状态
 const { initTheme } = useTheme()
 initTheme()
 
