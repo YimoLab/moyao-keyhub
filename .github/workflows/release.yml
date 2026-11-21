@@ -76,10 +76,12 @@ jobs:
           export TAG
           if [ -z "${RELEASE_ID}" ]; then echo "::error::tauri-action 没有返回 releaseId"; exit 1; fi
           SIG_FILE=$(ls src-tauri/target/release/bundle/nsis/*.exe.sig | head -1)
-          EXE_NAME=$(basename "$SIG_FILE" .sig)
-          export SIG_FILE EXE_NAME
-          URL=$(gh api "repos/${GITHUB_REPOSITORY}/releases/${RELEASE_ID}" --jq ".assets[] | select(.name == \"${EXE_NAME}\") | .browser_download_url")
-          if [ -z "$URL" ]; then echo "::error::Release 中找不到安装包 ${EXE_NAME}"; exit 1; fi
+          export SIG_FILE
+          EXE_ASSET=$(gh api "repos/${GITHUB_REPOSITORY}/releases/${RELEASE_ID}" --jq '.assets[] | select(.name | endswith(".exe")) | .name' | head -1)
+          if [ -z "$EXE_ASSET" ]; then echo "::error::Release 中没有任何 .exe 安装包"; exit 1; fi
+          echo "安装包 asset: $EXE_ASSET"
+          URL=$(gh api "repos/${GITHUB_REPOSITORY}/releases/${RELEASE_ID}" --jq ".assets[] | select(.name == \"${EXE_ASSET}\") | .browser_download_url")
+          if [ -z "$URL" ]; then echo "::error::找不到安装包下载地址"; exit 1; fi
           export URL
           node -e '
             const fs = require("fs");
