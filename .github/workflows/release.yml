@@ -105,7 +105,7 @@ jobs:
             const fs = require("fs");
             const content = {
               version: process.env.TAG.replace(/^v/, ""),
-              notes: "墨钥 KeyHub " + process.env.TAG,
+              notes: "KeyHub " + process.env.TAG,
               pub_date: new Date().toISOString(),
               platforms: {
                 "windows-x86_64": {
