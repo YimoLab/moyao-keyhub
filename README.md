@@ -314,38 +314,100 @@ python scripts/gen_icons.py
 
 ## 发布与自动更新
 
-更新链路：GitHub Release 托管安装包与 `latest.json`，客户端用 Tauri updater 读取并校验签名。
+更新链路：GitHub Release 托管 NSIS 安装包、`.sig` 与 `latest.json`，客户端用 Tauri updater 读取并校验签名。
 
-**版本号**：发版前同时修改 `package.json` 与 `src-tauri/tauri.conf.json` 的 `version`（两处必须一致）。当前 `bundle.targets` 只构建 NSIS；Windows 之外的安装包等实机验证后再加。
+### 发版步骤
 
-**发版流程**
+1. 同步版本号（三处一致，Cargo.lock 会随构建自动更新）：
+   - `package.json`
+   - `src-tauri/tauri.conf.json`
+   - `src-tauri/Cargo.toml`
+2. 本地跑一次 `npm run build` 和 `cargo check`，确认版本与构建正常。
+3. 提交并推送 `main`。
+4. 打 tag（必须与版本一致）并推送：
 
-1. 提交代码，打 tag：`git tag v0.1.1 && git push origin v0.1.1`
-2. GitHub Actions 在 Windows 上构建 NSIS 安装包、生成 `.sig` 与 `latest.json`，创建**草稿 Release**
-3. 核对产物后手动发布 Release；发布后 `latest.json` 才能被客户端读取
+   ```bash
+   git tag v0.2.1
+   git push origin v0.2.1
+   ```
 
-**更新端点**
+5. 等待 GitHub Actions 的 `Release` 工作流完成（Windows NSIS）。
+6. 打开 Releases，核对草稿中的三件套：
+   - `KeyHub_<version>_x64-setup.exe`
+   - `...setup.exe.sig`
+   - `latest.json`
+7. 手动 **Publish release**。只有发布后，客户端才能读到 `latest.json`。
+
+### GitHub Actions 做了什么
+
+工作流：`.github/workflows/release.yml`
+
+1. `npm ci` + Rust stable（Windows MSVC）。
+2. **校验签名密钥**：用 Secrets 对临时文件签名；Secret 缺失或格式错误会在构建前直接失败。
+3. **清理同 tag 旧草稿**：避免重跑时 GitHub 报 `ReleaseAsset already_exists`。
+4. `tauri-action` 构建 NSIS、上传安装包与 `.sig`（`includeUpdaterJson: false`）。
+5. **自行生成 `latest.json`**：
+   - 签名取自构建产物 `*.exe.sig`；
+   - 下载地址**构造为正式 tag URL**：
+     `https://github.com/YimoLab/moyao-keyhub/releases/download/<tag>/<asset>`
+   - 用 `gh release upload --clobber` 上传。
+6. 创建**草稿 Release**，等待人工发布。
+
+> 不要用草稿 Release 的 `browser_download_url` 作为更新地址：草稿阶段它是 `untagged-...` 临时链接，发布后返回 404。
+
+### 更新端点
 
 ```
 https://github.com/YimoLab/moyao-keyhub/releases/latest/download/latest.json
 ```
 
-**签名密钥（必须保管好）**
+### 签名密钥（必须保管好）
 
-- 公钥已写入 `src-tauri/tauri.conf.json` 的 `plugins.updater.pubkey`
-- 私钥与密码只在本机/CI Secrets，**绝不提交**
+- 公钥已写入 `src-tauri/tauri.conf.json` 的 `plugins.updater.pubkey`。
+- 私钥与密码只在本机/CI Secrets，**绝不提交**。
 - GitHub 仓库 Settings → Secrets and variables → Actions 添加：
-  - `TAURI_SIGNING_PRIVATE_KEY`（私钥文件内容）
+  - `TAURI_SIGNING_PRIVATE_KEY`（私钥文件完整内容）
   - `TAURI_SIGNING_PRIVATE_KEY_PASSWORD`（私钥密码）
-- 本机私钥在 `~/.tauri/moyao-keyhub.key`（Windows 为 `C:/Users/<用户名>/.tauri/...`），密码在同目录的 `moyao-keyhub.password.txt`
-- 私钥或密码丢失后无法再签发更新，只能换密钥并让用户重新安装
+- 本机私钥：`~/.tauri/moyao-keyhub.key`（Windows 为 `C:/Users/<用户名>/.tauri/...`），密码在同目录 `moyao-keyhub.password.txt`。
+- 私钥或密码丢失后无法再签发更新，只能换密钥并让用户重新安装。
 
-**隐私约定**
+### 隐私约定
 
-- 自动检查更新默认关闭，首次进入主界面提示一次；可在设置 → 应用更新中开启
-- 开启后启动 5 秒检查一次，6 小时内不重复
-- 只 GET `latest.json`，不上传任何信息，不包含遥测
-- 更新包签名校验失败会被拒绝安装
+- 自动检查更新默认关闭，首次进入主界面提示一次；可在设置 → 应用更新中开启。
+- 开启后启动 5 秒检查一次，6 小时内不重复。
+- 只 GET `latest.json`，不上传任何信息，不包含遥测。
+- 更新包签名校验失败会被拒绝安装。
+
+### 验证发布
+
+```bash
+# 1. latest.json 可访问，version 正确
+curl -L https://github.com/YimoLab/moyao-keyhub/releases/latest/download/latest.json
+
+# 2. platforms.windows-x86_64.url 必须是 /releases/download/vX.Y.Z/... 的正式地址
+#    不能是 untagged-...
+
+# 3. 安装包可下载（HTTP 200）
+curl -IL https://github.com/YimoLab/moyao-keyhub/releases/download/v0.2.0/KeyHub_0.2.0_x64-setup.exe
+
+# 4. latest.json 中的 signature 与 Release 里的 .sig 内容完全一致
+```
+
+### 排障记录（0.2.0 首次发版）
+
+| 现象 | 原因 | 修复 |
+|---|---|---|
+| CI 前端构建找不到 `./design/vue/ui/Icon.vue` | `.gitignore` 的 `ui/` 误伤了 `src/design/vue/ui/` | 改为 `/ui/`（只忽略根目录设计稿），补齐 21 个组件 |
+| CI `tauri build` 在干净检出中失败 | `bundle.resources` 引用了 `binaries/WebView2Loader.dll`，但 `src-tauri/binaries/` 被忽略 | 把 DLL 纳入仓库 |
+| 重跑 tag 报 `ReleaseAsset already_exists` | 上一次运行已把同名安装包上传到草稿 | 构建前自动删除同 tag 草稿（只删 draft，不碰已发布 Release） |
+| 草稿里没有 `latest.json` | `tauri-action` 的 JSON 生成在 NSIS 下未触发；参数名也曾写错（`uploadUpdaterJson` 应为 `includeUpdaterJson`） | 关闭 action 的 JSON 生成，改为构建后自行生成并上传 |
+| `latest.json` 的安装包 URL 是 `untagged-...`，发布后 404 | 草稿阶段的 `browser_download_url` 是临时地址 | 用 tag + asset 名构造正式下载 URL |
+| 已发布 Release 的 `latest.json` 覆盖失败 | 同名 asset 覆盖在 `gh release upload` 下不稳定 | 在 Release 编辑页删除旧 `latest.json` 后再上传新文件 |
+| 终端里中文 `notes` 显示成 `īԿ` | Windows 控制台代码页的显示问题，文件本身是正确的 UTF-8 | 用浏览器的 `latest.json` 或 `ensure_ascii=True` 确认，不要按乱码改文件 |
+
+### 首次版本注意
+
+`0.1.0` 发布时还没有 updater 代码，所以“旧版自动升级到 0.2.0”无法验证；从 `0.2.x` 开始的下一次版本才能真正端到端验证自动更新。
 
 ---
 
