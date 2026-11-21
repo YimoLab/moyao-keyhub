@@ -47,6 +47,21 @@ jobs:
           fi
           echo "签名密钥校验通过"
 
+      - name: 清理同 tag 的旧草稿
+        if: startsWith(github.ref, 'refs/tags/v')
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          TAG="${GITHUB_REF_NAME}"
+          if gh release view "$TAG" --json isDraft --jq '.isDraft' 2>/dev/null | grep -q true; then
+            echo "发现同 tag 草稿，先删除：$TAG"
+            gh release delete "$TAG" --yes --cleanup-tag=false
+          else
+            echo "没有需要清理的草稿"
+          fi
+
       - name: 构建、签名并创建 Release
         id: release
         uses: tauri-apps/tauri-action@v0
