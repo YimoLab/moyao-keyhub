@@ -14,35 +14,23 @@ jobs:
     permissions:
       contents: write
     steps:
-      - name: 为已有 Release 补 latest.json
+      - name: 为已有 Release 重生成 latest.json
         shell: bash
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           TAG: ${{ inputs.tag }}
         run: |
           set -euo pipefail
-          echo "tag=$TAG"
-          RELEASES=$(gh api "repos/${GITHUB_REPOSITORY}/releases?per_page=100")
-          RELEASE_JSON=$(echo "$RELEASES" | jq -c --arg t "$TAG" '.[] | select(.tag_name == $t)')
-          if [ -z "$RELEASE_JSON" ]; then
-            TAGS=$(echo "$RELEASES" | jq -r '.[].tag_name' | paste -sd, -)
-            echo "::error::找不到 Release ${TAG}；当前 token 可见的 release: ${TAGS:-（无）}"
-            exit 1
-          fi
-          RELEASE_ID=$(echo "$RELEASE_JSON" | jq -r '.id')
-          echo "release_id=$RELEASE_ID draft=$(echo "$RELEASE_JSON" | jq -r '.draft')"
-          echo "assets:"; echo "$RELEASE_JSON" | jq -r '.assets[].name' | sed 's/^/  - /'
-
+          RELEASE_JSON=$(gh api "repos/${GITHUB_REPOSITORY}/releases/tags/${TAG}")
           EXE_NAME=$(echo "$RELEASE_JSON" | jq -r '.assets[] | select(.name | endswith(".exe")) | .name' | head -1)
           if [ -z "$EXE_NAME" ]; then echo "::error::Release 中没有 .exe 安装包"; exit 1; fi
-          URL=$(echo "$RELEASE_JSON" | jq -r --arg n "$EXE_NAME" '.assets[] | select(.name == $n) | .browser_download_url')
-
           SIG_ID=$(echo "$RELEASE_JSON" | jq -r '.assets[] | select(.name | endswith(".sig")) | .id' | head -1)
           if [ -z "$SIG_ID" ] || [ "$SIG_ID" = "null" ]; then echo "::error::Release 中没有 .sig 签名文件"; exit 1; fi
           curl -fsSL -H "Authorization: Bearer $GH_TOKEN" -H "Accept: application/octet-stream" \
             "https://api.github.com/repos/${GITHUB_REPOSITORY}/releases/assets/${SIG_ID}" -o sig.txt \
             || { echo "::error::下载 .sig 失败"; exit 1; }
-
+          ENC_NAME=$(node -p "encodeURIComponent(process.argv[1])" "$EXE_NAME")
+          URL="https://github.com/${GITHUB_REPOSITORY}/releases/download/${TAG}/${ENC_NAME}"
           jq -n \
             --arg version "${TAG#v}" \
             --arg notes "墨钥 KeyHub ${TAG}" \
@@ -50,12 +38,5 @@ jobs:
             --arg signature "$(cat sig.txt)" \
             --arg url "$URL" \
             '{version:$version,notes:$notes,pub_date:$pub_date,platforms:{"windows-x86_64":{signature:$signature,url:$url}}}' > latest.json
-
-          OLD_ID=$(echo "$RELEASE_JSON" | jq -r '.assets[] | select(.name == "latest.json") | .id' | head -1)
-          if [ -n "$OLD_ID" ] && [ "$OLD_ID" != "null" ]; then
-            gh api -X DELETE "repos/${GITHUB_REPOSITORY}/releases/assets/${OLD_ID}"
-          fi
-          gh api -X POST -H "Content-Type: application/octet-stream" --input latest.json \
-            "repos/${GITHUB_REPOSITORY}/releases/${RELEASE_ID}/assets?name=latest.json" \
-            || { echo "::error::上传 latest.json 失败"; exit 1; }
-          echo "latest.json 已上传到 $TAG"
+          gh release upload "$TAG" latest.json --clobber || { echo "::error::上传 latest.json 失败"; exit 1; }
+          echo "latest.json 已更新：$URL"

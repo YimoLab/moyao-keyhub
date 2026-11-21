@@ -99,11 +99,8 @@ jobs:
           echo "assets:"; echo "$ASSETS"
           EXE_ASSET=$(echo "$ASSETS" | grep -E '\.exe$' | head -1)
           if [ -z "$EXE_ASSET" ]; then echo "::error::Release 中没有 .exe 安装包"; exit 1; fi
-          if ! URL=$(gh api "repos/${GITHUB_REPOSITORY}/releases/${RELEASE_ID}" --jq ".assets[] | select(.name == \"${EXE_ASSET}\") | .browser_download_url"); then
-            echo "::error::读取安装包 URL 失败"; exit 1
-          fi
           echo "installer: $EXE_ASSET"
-          export URL
+          export ASSET_NAME="$EXE_ASSET"
           if ! node -e '
             const fs = require("fs");
             const content = {
@@ -113,7 +110,13 @@ jobs:
               platforms: {
                 "windows-x86_64": {
                   signature: fs.readFileSync(process.env.SIG_FILE, "utf8").trim(),
-                  url: process.env.URL
+                  url:
+                    "https://github.com/" +
+                    process.env.GITHUB_REPOSITORY +
+                    "/releases/download/" +
+                    process.env.TAG +
+                    "/" +
+                    encodeURIComponent(process.env.ASSET_NAME)
                 }
               }
             };
