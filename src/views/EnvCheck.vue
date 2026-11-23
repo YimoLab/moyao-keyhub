@@ -25,6 +25,17 @@ const guide = ref(null)
 const showGuide = ref(false)
 const enabling = ref(false)
 
+/**
+ * SSH 版本串通常很长（如 `OpenSSH_for_Windows_9.5p2, LibreSSL 3.8.2`），
+ * 整串塞进徽记会把标题和描述挤成竖排。徽记只保留核心版本号，
+ * 完整串仍显示在下方的检测说明里。
+ */
+function compactSshVersion(v) {
+  if (!v) return ''
+  const m = String(v).match(/OpenSSH(?:_for_\w+)?[_\s-]*(\d[\w.]*)/i)
+  return m ? `OpenSSH ${m[1]}` : String(v)
+}
+
 const checks = computed(() => {
   const r = report.value
   // 探测失败 ≠ 环境缺失。失败时所有项进入 unknown，不给出任何结论。
@@ -37,7 +48,8 @@ const checks = computed(() => {
       title: 'SSH 客户端',
       desc: '双源探测：系统原生 OpenSSH / Git 内置 OpenSSH',
       ok: known ? !!r?.preferred : null,
-      value: known ? r?.preferred?.version || '未检测到' : '无法检测',
+      value: known ? compactSshVersion(r?.preferred?.version) || '未检测到' : '无法检测',
+      fullValue: known ? r?.preferred?.version || '' : '',
       hint: !known
         ? unknownHint
         : r?.preferred
@@ -184,6 +196,7 @@ onMounted(runDetect)
           </div>
           <span
             class="anx-badge"
+            :title="c.fullValue || null"
             :class="
               detecting
                 ? 'anx-badge--neutral'

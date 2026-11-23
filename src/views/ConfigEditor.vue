@@ -406,8 +406,8 @@ onMounted(async () => {
       </div>
       <div class="kh-toolbar__right">
         <SegmentedControl v-model="mode" :options="modeOptions" />
-        <button class="anx-btn anx-btn--ghost anx-btn--sm" @click="backupsOpen = true">
-          <Icon name="clock" :size="15" />
+        <button class="anx-btn anx-btn--ghost" @click="backupsOpen = true">
+          <Icon name="clock" :size="16" />
           备份历史
           <span v-if="backups.length" class="anx-tab__count">{{ backups.length }}</span>
         </button>

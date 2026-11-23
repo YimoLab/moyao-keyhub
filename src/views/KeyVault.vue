@@ -511,8 +511,8 @@ defineExpose({ load })
       desc="本机 ~/.ssh 中的密钥。生成、复制、部署与轮换都在这里完成，私钥不会离开该目录。"
     >
       <template #actions>
-        <button class="anx-btn anx-btn--ghost anx-btn--sm" :disabled="loading" @click="load">
-          <Icon name="refresh" :size="15" />
+        <button class="anx-btn anx-btn--ghost" :disabled="loading" @click="load">
+          <Icon name="refresh" :size="16" />
           刷新
         </button>
         <button class="anx-btn anx-btn--primary" :disabled="!!loadError" @click="openGen">

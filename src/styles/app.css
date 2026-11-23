@@ -361,6 +361,13 @@ body {
 .kh-toolbar__right {
   justify-content: flex-end;
 }
+/* 工具栏内与按钮同排：分段控件压缩到与 .anx-btn 一致的 40px 高 */
+.kh-toolbar__right .anx-segmented {
+  padding: 3px;
+}
+.kh-toolbar__right .anx-segmented__opt {
+  padding-block: 6px;
+}
 
 /* 带前置图标的搜索输入 */
 .kh-searchfield {
@@ -1406,6 +1413,15 @@ body {
 .kh-envcard__head {
   align-items: flex-start;
   padding: 18px 20px;
+  /* 徽记内容偏长时（版本串）允许换行，避免把标题挤成竖排 */
+  flex-wrap: wrap;
+  row-gap: 10px;
+}
+.kh-envcard__head .kh-grow {
+  flex: 1 1 200px;
+}
+.kh-envcard__head .anx-badge {
+  margin-left: auto;
 }
 .kh-envcard__head h2 {
   font-size: 15px;
