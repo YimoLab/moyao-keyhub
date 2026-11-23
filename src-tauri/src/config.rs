@@ -290,12 +290,12 @@ pub fn render_managed_block(hosts: &[HostEntry]) -> String {
     out.push_str(MGR_BEGIN);
     out.push('\n');
     for h in hosts {
-        let note = if h.note.trim().is_empty() {
-            "由墨钥管理"
+        let note = h.note.trim();
+        if note.is_empty() || note == "由墨钥管理" {
+            out.push_str(&format!("# ─── {} · 由墨钥管理\n", h.alias));
         } else {
-            &h.note
-        };
-        out.push_str(&format!("# ─── {} · {} · 由墨钥管理\n", h.alias, note));
+            out.push_str(&format!("# ─── {} · {} · 由墨钥管理\n", h.alias, note));
+        }
         out.push_str(&format!("Host {}\n", h.alias));
         if !h.hostname.trim().is_empty() {
             out.push_str(&format!("    HostName {}\n", h.hostname.trim()));
@@ -326,11 +326,42 @@ pub fn render_managed_block(hosts: &[HostEntry]) -> String {
 }
 
 /// 用新的托管块替换原文中的旧托管块；没有旧块则追加到末尾。
+/// 移除原文中所有具体 Host 段，保留 `Host *` 全局段与段外内容。
+///
+/// 用于首次接管（原文没有托管块）：新托管块会完整描述表单里的 Host，
+/// 若同时保留旧 Host 段，OpenSSH 只采用先匹配的旧段，表单修改会静默失效；
+/// 旧段里的行尾注释等问题还会让保存被校验拦截。
+fn strip_host_sections(raw: &str) -> String {
+    let mut out = String::with_capacity(raw.len());
+    let mut dropping = false;
+    for line in raw.lines() {
+        let (key, value) = split_kv(line.trim());
+        if key.eq_ignore_ascii_case("host") {
+            // `Host *` 是全局默认段，必须保留；其余具体 Host 段整体移除
+            let wildcard = value.split_whitespace().next() == Some("*");
+            dropping = !wildcard;
+            if !dropping {
+                out.push_str(line);
+                out.push('\n');
+            }
+            continue;
+        }
+        if dropping {
+            continue;
+        }
+        out.push_str(line);
+        out.push('\n');
+    }
+    out
+}
+
 pub fn apply_managed(raw: &str, hosts: &[HostEntry]) -> String {
     let block = render_managed_block(hosts);
     let Some(b) = raw.find(MGR_BEGIN) else {
-        // 无托管块：追加
-        let mut base = raw.trim_end().to_string();
+        // 无托管块：首次接管。
+        // 直接追加会让旧 Host 段与新托管块并存，所以先剥离旧的具体 Host 段。
+        let stripped = strip_host_sections(raw);
+        let mut base = stripped.trim_end().to_string();
         if !base.is_empty() {
             base.push_str("\n\n");
         }
@@ -431,12 +462,22 @@ pub fn validate_hosts(hosts: &[HostEntry]) -> Vec<CheckIssue> {
                 message: "未配置 HostName，将直接按别名解析域名".into(),
                 hint: "若别名只是代号，请补上真实域名或 IP".into(),
             });
-        } else if h.hostname.contains(' ') {
+        } else if h.hostname.contains(char::is_whitespace) {
+            // 行尾 `#` 不是注释：OpenSSH 会把整行算进 HostName，这是最常见的误写
+            let inline_comment = h.hostname.contains('#');
             issues.push(CheckIssue {
                 level: "error".into(),
                 alias: a.into(),
-                message: "HostName 含空格".into(),
-                hint: "去掉空格，IP 或域名都不能带空格".into(),
+                message: if inline_comment {
+                    "HostName 含空格，`#` 之后可能被误当作注释".into()
+                } else {
+                    "HostName 含空格".into()
+                },
+                hint: if inline_comment {
+                    "OpenSSH 不支持行尾注释，`#` 之后的内容会被算进 HostName；请把注释移到单独一行".into()
+                } else {
+                    "去掉空格，IP 或域名都不能带空格".into()
+                },
             });
         }
 
@@ -760,4 +801,60 @@ pub fn sample_config() -> String {
          \x20   IdentitiesOnly yes\n",
         "my-server", host, user
     )
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// 首次接管：原文没有托管块时，旧 Host 段必须被移除，
+    /// 否则新托管块与旧段并存，OpenSSH 会优先使用旧段，表单修改不生效。
+    #[test]
+    fn first_save_replaces_existing_host_sections() {
+        let raw = "# config\n\n# 旧配置\nHost old\n  HostName old.example.com # 行尾注释\n  Port 22\n\nHost *\n  ServerAliveInterval 30\n";
+        let hosts = vec![HostEntry {
+            alias: "new".into(),
+            hostname: "new.example.com".into(),
+            port: 22,
+            ..Default::default()
+        }];
+        let out = apply_managed(raw, &hosts);
+
+        assert!(!out.contains("Host old"), "旧 Host 段应被替换: {out}");
+        assert!(out.contains("Host *"), "全局段应保留: {out}");
+        assert!(out.contains("Host new"));
+
+        let (parsed, _) = parse_hosts(&out).unwrap();
+        assert_eq!(parsed.len(), 1);
+        assert_eq!(parsed[0].alias, "new");
+        assert!(validate_hosts(&parsed).iter().all(|i| i.level != "error"));
+    }
+
+    /// 行尾 `#` 不是注释，会被算进 HostName，提示必须说明怎么改。
+    #[test]
+    fn inline_comment_on_hostname_is_reported_with_hint() {
+        let hosts = vec![HostEntry {
+            alias: "gl".into(),
+            hostname: "gitlab.example.com # ip地址或者域名".into(),
+            ..Default::default()
+        }];
+        let err = validate_hosts(&hosts)
+            .into_iter()
+            .find(|i| i.level == "error")
+            .expect("应报错");
+        assert_eq!(err.alias, "gl");
+        assert!(err.hint.contains("行尾注释"), "hint 应说明行尾注释: {err:?}");
+    }
+
+    /// 备注默认值不应被渲染两次。
+    #[test]
+    fn managed_note_is_not_duplicated() {
+        let hosts = vec![HostEntry {
+            alias: "a".into(),
+            note: "由墨钥管理".into(),
+            ..Default::default()
+        }];
+        let block = render_managed_block(&hosts);
+        assert!(!block.contains("由墨钥管理 · 由墨钥管理"), "{block}");
+    }
 }

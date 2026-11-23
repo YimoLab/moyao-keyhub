@@ -158,6 +158,8 @@ function patchHost(field, value) {
 
 /* ══════ 校验 ══════ */
 const issues = ref([])
+/** 校验请求本身失败时的提示；不能把「请求失败」显示成「全部通过」 */
+const validateError = ref('')
 let validateTimer = null
 
 function scheduleValidate() {
@@ -172,8 +174,9 @@ async function runValidate() {
     } else {
       issues.value = (await api.validateConfig(rawText.value)) || []
     }
-  } catch {
-    issues.value = []
+    validateError.value = ''
+  } catch (e) {
+    validateError.value = e.message || '校验服务暂时不可用'
   }
 }
 
@@ -737,18 +740,27 @@ onMounted(async () => {
           <div>
             <h2>校验清单</h2>
             <div class="kh-actions">
-              <span v-if="!issues.length" class="anx-badge anx-badge--ok">
+              <span v-if="!issues.length && !validateError" class="anx-badge anx-badge--ok">
                 <Icon name="check" :size="12" /> 全部通过
               </span>
               <span v-if="errors.length" class="anx-badge anx-badge--danger">{{ errors.length }} 错误</span>
               <span v-if="warnings.length" class="anx-badge anx-badge--warn">{{ warnings.length }} 提醒</span>
               <span v-if="infos.length" class="anx-badge anx-badge--neutral">{{ infos.length }} 建议</span>
+              <span v-if="validateError" class="anx-badge anx-badge--warn">校验暂不可用</span>
             </div>
           </div>
         </div>
 
         <div class="kh-cfg-issues__body">
-          <div v-if="!issues.length" class="anx-empty kh-empty-inline">
+          <div v-if="validateError" class="kh-issue kh-issue--warn">
+            <Icon name="alert-triangle" :size="15" class="kh-issue__icon" />
+            <div class="kh-grow">
+              <div class="kh-issue__msg">校验服务暂时不可用</div>
+              <div class="kh-issue__hint">{{ validateError }}（结果可能不是最新的）</div>
+            </div>
+          </div>
+
+          <div v-if="!issues.length && !validateError" class="anx-empty kh-empty-inline">
             <div class="anx-empty__icon kh-ok-icon"><Icon name="check" :size="22" /></div>
             <p class="anx-empty__title">没有发现问题</p>
             <p class="anx-empty__text">所有 Host 的别名、路径与端口都通过了检查。</p>
