@@ -1,6 +1,6 @@
 [package]
 name = "keyhub"
-version = "0.2.3"
+version = "0.2.4"
 description = "墨钥 KeyHub · 多平台 SSH 密钥管理桌面程序"
 authors = ["KeyHub"]
 edition = "2021"
