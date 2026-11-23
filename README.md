@@ -108,6 +108,7 @@ npm run app:build
 > - 不要直接跑 `npm run app:build`：`bundle.targets` 含 `msi`，需要额外安装 WiX Toolset，未安装会在漫长的编译结束后才失败。
 > - 项目使用 GNU 工具链时，`Cargo.toml` 的 `crate-type` 必须是 `["rlib"]`，不要改回 Tauri 模板的三件套（会触发 PE 导出序号溢出）。
 > - `WebView2Loader.dll` 是 GNU 工具链下 exe 的运行时依赖，已由 `build.rs` + `bundle.resources` 自动打进安装包，这两处不要删。
+> - `productName` 必须是纯 ASCII（当前为 `KeyHub`）：Tauri 用它拼安装目录、卸载注册表键和安装包名。窗口标题和界面里的中文品牌名由 `app.windows[].title` 与前端文案承载，不受影响。改动 `productName` 会改变安装路径，必须同步维护 `src-tauri/nsis/legacy-migration.nsh` 的迁移钩子（见下方「安装路径迁移」）。
 
 完整原理与踩坑记录保留在本地 `docs/` 目录（不随仓库分发）。
 
@@ -404,6 +405,26 @@ curl -IL https://github.com/YimoLab/moyao-keyhub/releases/download/v0.2.0/KeyHub
 | `latest.json` 的安装包 URL 是 `untagged-...`，发布后 404 | 草稿阶段的 `browser_download_url` 是临时地址 | 用 tag + asset 名构造正式下载 URL |
 | 已发布 Release 的 `latest.json` 覆盖失败 | 同名 asset 覆盖在 `gh release upload` 下不稳定 | 在 Release 编辑页删除旧 `latest.json` 后再上传新文件 |
 | 终端里中文 `notes` 显示成 `īԿ` | Windows 控制台代码页的显示问题，文件本身是正确的 UTF-8 | 用浏览器的 `latest.json` 或 `ensure_ascii=True` 确认，不要按乱码改文件 |
+
+### 安装路径迁移（productName 改为英文）
+
+早期版本的 `productName` 是中文「墨钥 KeyHub」，安装目录随之带中文。中文路径在部分系统与子进程工具里会被错误解码，因此现在改为纯英文：
+
+| 项目 | 旧（≤ 0.2.x） | 新 |
+|---|---|---|
+| 安装目录 | `%LOCALAPPDATA%\墨钥 KeyHub` | `%LOCALAPPDATA%\KeyHub` |
+| 主程序 | `keyhub.exe` | `KeyHub.exe` |
+| 安装包 | `墨钥 KeyHub_<ver>_x64-setup.exe` | `KeyHub_<ver>_x64-setup.exe` |
+| 开始菜单 / 卸载项显示名 | 墨钥 KeyHub | KeyHub |
+
+窗口标题、界面文案和应用数据位置（`~/.ssh`）都不变。
+
+NSIS 按 `Software\<manufacturer>\<productName>` 判断是否已安装，产品名一改就找不到旧版本。`src-tauri/nsis/legacy-migration.nsh` 会在拷贝新文件前读取旧卸载表、静默卸载旧版，并在安装完成后清理残留目录，保证只剩一份安装；旧版本不存在时该钩子是空操作。
+
+验证迁移时注意：
+
+- 旧版卸载器会把自身复制到临时目录后返回，旧目录可能在新版装完前还没删净，钩子在 `NSIS_HOOK_POSTINSTALL` 里补了一次 `RMDir /r`。
+- 旧的中文快捷方式由旧卸载器删除，新版会按新名字重建（静默更新的安装器也会创建桌面快捷方式）。
 
 ### 首次版本注意
 
