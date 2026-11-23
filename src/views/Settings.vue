@@ -91,22 +91,25 @@ async function patch(changes) {
   }
 }
 
-function onToggle(key) {
-  return (e) => patch({ [key]: e.target.checked })
+/*
+ * 事件处理器直接接收事件对象。
+ * 注意：模板里必须写成 onToggle('key', $event) —— 写成 onToggle('key') 时
+ * Vue 只会调用它一次并丢弃返回值，开关看起来变了，实际不会落盘。
+ */
+function onToggle(key, e) {
+  patch({ [key]: e.target.checked })
 }
 
-function onSelect(key) {
-  return (e) => patch({ [key]: e.target.value })
+function onSelect(key, e) {
+  patch({ [key]: e.target.value })
 }
 
 function onNumber(key, min, max) {
-  return () => {
-    let v = Number(draft[key])
-    if (!Number.isFinite(v)) v = p.value[key]
-    v = Math.min(max, Math.max(min, Math.round(v)))
-    draft[key] = v
-    if (v !== p.value[key]) patch({ [key]: v })
-  }
+  let v = Number(draft[key])
+  if (!Number.isFinite(v)) v = p.value[key]
+  v = Math.min(max, Math.max(min, Math.round(v)))
+  draft[key] = v
+  if (v !== p.value[key]) patch({ [key]: v })
 }
 
 /* ── 主题 ───────────────────────────────────────────────────── */
@@ -244,7 +247,7 @@ onMounted(async () => {
   try {
     appVersion.value = await getVersion()
   } catch {
-    appVersion.value = '0.2.0'
+    appVersion.value = '0.2.1'
   }
 })
 
@@ -382,7 +385,7 @@ const platformLabel = computed(() => {
                 <div class="kh-set-desc">仅对无口令密钥有效；带口令的密钥需要你手动输入口令，不会静默加入</div>
               </div>
               <label class="anx-switch">
-                <input type="checkbox" :checked="p.autoAddToAgent" @change="onToggle('autoAddToAgent')" />
+                <input type="checkbox" :checked="p.autoAddToAgent" @change="onToggle('autoAddToAgent', $event)" />
                 <span class="anx-switch__track" />
               </label>
             </div>
@@ -402,7 +405,7 @@ const platformLabel = computed(() => {
                   <p class="kh-list__text">删除密钥时要求手动键入文件名，防止误点</p>
                 </div>
                 <label class="anx-switch">
-                  <input type="checkbox" :checked="p.confirmDeleteTyped" @change="onToggle('confirmDeleteTyped')" />
+                  <input type="checkbox" :checked="p.confirmDeleteTyped" @change="onToggle('confirmDeleteTyped', $event)" />
                   <span class="anx-switch__track" />
                 </label>
               </li>
@@ -412,7 +415,7 @@ const platformLabel = computed(() => {
                   <p class="kh-list__text">测试会发起真实网络连接，确认后才会执行</p>
                 </div>
                 <label class="anx-switch">
-                  <input type="checkbox" :checked="p.confirmBeforeConnect" @change="onToggle('confirmBeforeConnect')" />
+                  <input type="checkbox" :checked="p.confirmBeforeConnect" @change="onToggle('confirmBeforeConnect', $event)" />
                   <span class="anx-switch__track" />
                 </label>
               </li>
@@ -422,7 +425,7 @@ const platformLabel = computed(() => {
                   <p class="kh-list__text">打开程序时扫描 OpenSSH、权限与 agent 状态</p>
                 </div>
                 <label class="anx-switch">
-                  <input type="checkbox" :checked="p.autocheckOnStart" @change="onToggle('autocheckOnStart')" />
+                  <input type="checkbox" :checked="p.autocheckOnStart" @change="onToggle('autocheckOnStart', $event)" />
                   <span class="anx-switch__track" />
                 </label>
               </li>
@@ -432,7 +435,7 @@ const platformLabel = computed(() => {
                   <p class="kh-list__text">读取到过宽权限时提示并一键修复（不会静默改盘）</p>
                 </div>
                 <label class="anx-switch">
-                  <input type="checkbox" :checked="p.autoFixPerms" @change="onToggle('autoFixPerms')" />
+                  <input type="checkbox" :checked="p.autoFixPerms" @change="onToggle('autoFixPerms', $event)" />
                   <span class="anx-switch__track" />
                 </label>
               </li>
@@ -442,7 +445,7 @@ const platformLabel = computed(() => {
                   <p class="kh-list__text">每次写入前留存一份可回滚的副本</p>
                 </div>
                 <label class="anx-switch">
-                  <input type="checkbox" :checked="p.autoBackupConfig" @change="onToggle('autoBackupConfig')" />
+                  <input type="checkbox" :checked="p.autoBackupConfig" @change="onToggle('autoBackupConfig', $event)" />
                   <span class="anx-switch__track" />
                 </label>
               </li>
@@ -483,7 +486,7 @@ const platformLabel = computed(() => {
                 <div class="kh-set-desc">记录密钥生成、Config 修改、权限修复、连通测试等敏感操作</div>
               </div>
               <label class="anx-switch">
-                <input type="checkbox" :checked="p.auditEnabled" @change="onToggle('auditEnabled')" />
+                <input type="checkbox" :checked="p.auditEnabled" @change="onToggle('auditEnabled', $event)" />
                 <span class="anx-switch__track" />
               </label>
             </div>
@@ -623,7 +626,7 @@ const platformLabel = computed(() => {
                 <input
                   type="checkbox"
                   :checked="p.autoCheckUpdates"
-                  @change="onToggle('autoCheckUpdates')"
+                  @change="onToggle('autoCheckUpdates', $event)"
                 />
                 <span class="anx-switch__track" />
               </label>
