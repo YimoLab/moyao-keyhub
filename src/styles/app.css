@@ -380,7 +380,9 @@ body {
 }
 .kh-searchfield > svg {
   position: absolute;
+  top: 50%;
   left: 12px;
+  transform: translateY(-50%);
   color: var(--muted-text);
   pointer-events: none;
 }
