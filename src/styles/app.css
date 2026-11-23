@@ -877,9 +877,11 @@ body {
   place-items: center;
   width: 48px;
   height: 48px;
-  border-radius: var(--r);
+  border-radius: 50%;
   background: var(--surface-2);
   color: var(--ink);
+  /* .kh-confirm 是 grid，水平居中图标 */
+  justify-self: center;
 }
 .kh-cf-icon--danger {
   background: var(--danger-soft);
@@ -1948,7 +1950,7 @@ body {
   width: 36px;
   height: 36px;
   flex: none;
-  border-radius: var(--r-xs);
+  border-radius: 50%;
   background: var(--surface-2);
   color: var(--ink);
 }
@@ -2012,7 +2014,7 @@ body {
   place-items: center;
   width: 64px;
   height: 64px;
-  border-radius: var(--r);
+  border-radius: 50%;
   background: var(--acid);
   color: var(--on-acid);
 }
