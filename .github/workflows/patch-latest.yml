@@ -14,6 +14,8 @@ jobs:
     permissions:
       contents: write
     steps:
+      - uses: actions/checkout@v4
+
       - name: 为已有 Release 重生成 latest.json
         shell: bash
         env:
@@ -31,9 +33,18 @@ jobs:
             || { echo "::error::下载 .sig 失败"; exit 1; }
           ENC_NAME=$(node -p "encodeURIComponent(process.argv[1])" "$EXE_NAME")
           URL="https://github.com/${GITHUB_REPOSITORY}/releases/download/${TAG}/${ENC_NAME}"
+          NOTES_FILE="release-notes/${TAG}.md"
+          if [ -f "$NOTES_FILE" ]; then
+            NOTES="$(cat "$NOTES_FILE")"
+            echo "使用发行说明：$NOTES_FILE"
+          else
+            NOTES=$(echo "$RELEASE_JSON" | jq -r '.body // ""')
+            echo "未找到 $NOTES_FILE，使用 Release 正文"
+          fi
+          if [ -z "$NOTES" ]; then NOTES="墨钥 KeyHub ${TAG}"; fi
           jq -n \
             --arg version "${TAG#v}" \
-            --arg notes "墨钥 KeyHub ${TAG}" \
+            --arg notes "$NOTES" \
             --arg pub_date "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
             --arg signature "$(cat sig.txt)" \
             --arg url "$URL" \

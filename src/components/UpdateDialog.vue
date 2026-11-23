@@ -1,8 +1,13 @@
 <script setup>
+import { computed } from 'vue'
 import AppModal from './AppModal.vue'
 import AlertBox from '../design/vue/ui/AlertBox.vue'
 import Icon from '../design/vue/ui/Icon.vue'
 import { downloadAndInstall, dismissUpdate, updateState } from '../lib/updater'
+import { renderReleaseNotes } from '../lib/releaseNotes'
+
+/** latest.json 的 notes 是远端数据，渲染器内部已做转义与链接白名单 */
+const renderedNotes = computed(() => renderReleaseNotes(updateState.update?.body))
 </script>
 
 <template>
@@ -23,9 +28,10 @@ import { downloadAndInstall, dismissUpdate, updateState } from '../lib/updater'
         </span>
       </div>
 
-      <div v-if="updateState.update.body" class="od-field anx-field">
-        <span class="anx-field__label">更新说明</span>
-        <pre class="kh-pre kh-update__notes">{{ updateState.update.body }}</pre>
+      <div class="anx-field">
+        <span class="anx-field__label">更新内容</span>
+        <div v-if="renderedNotes" class="kh-release-notes" v-html="renderedNotes" />
+        <p v-else class="kh-fine">本次更新暂无详细说明。</p>
       </div>
 
       <div v-if="updateState.downloading" class="kh-update__progress">

@@ -12,6 +12,7 @@ import { useToast } from '../lib/toast'
 import Icon from '../design/vue/ui/Icon.vue'
 import PageHead from '../design/vue/ui/PageHead.vue'
 import AlertBox from '../design/vue/ui/AlertBox.vue'
+import PageSkeleton from '../components/PageSkeleton.vue'
 
 const router = useRouter()
 const toast = useToast()
@@ -181,7 +182,9 @@ onMounted(runDetect)
       ]"
     />
 
-    <div class="kh-env-grid">
+    <PageSkeleton v-if="detecting && !report" variant="env" />
+
+    <div v-else class="kh-env-grid">
       <section
         v-for="c in checks"
         :key="c.key"

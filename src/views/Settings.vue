@@ -16,6 +16,7 @@ import SelectMenu from '../design/vue/ui/SelectMenu.vue'
 import SegmentedControl from '../design/vue/ui/SegmentedControl.vue'
 import KvList from '../design/vue/ui/KvList.vue'
 import AppModal from '../components/AppModal.vue'
+import PageSkeleton from '../components/PageSkeleton.vue'
 import BrandMark from '../components/BrandMark.vue'
 import { getVersion } from '@tauri-apps/api/app'
 import { checkForUpdates, updateState } from '../lib/updater.js'
@@ -247,7 +248,7 @@ onMounted(async () => {
   try {
     appVersion.value = await getVersion()
   } catch {
-    appVersion.value = '0.2.1'
+    appVersion.value = '0.2.2'
   }
 })
 
@@ -280,7 +281,9 @@ const platformLabel = computed(() => {
       </template>
     </PageHead>
 
-    <div class="kh-settings kh-collapse">
+    <PageSkeleton v-if="!env.prefs.loaded" variant="settings" />
+
+    <div v-else class="kh-settings kh-collapse">
       <!-- ═══ 左栏：设置分组 ══════════════════════════════════════ -->
       <div class="kh-settings__col">
         <!-- 外观 -->

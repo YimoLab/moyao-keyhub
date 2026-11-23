@@ -28,6 +28,7 @@ import FieldInput from '../design/vue/ui/FieldInput.vue'
 import AppModal from '../components/AppModal.vue'
 import AppDrawer from '../components/AppDrawer.vue'
 import AppErrorState from '../components/AppErrorState.vue'
+import PageSkeleton from '../components/PageSkeleton.vue'
 
 const toast = useToast()
 const store = useEnvStore()
@@ -522,7 +523,10 @@ defineExpose({ load })
       </template>
     </PageHead>
 
-    <!-- 轮换提醒 -->
+    <PageSkeleton v-if="loading" variant="vault" />
+
+    <template v-else>
+      <!-- 轮换提醒 -->
     <div v-if="staleKeys.length && !bannerDismissed" class="anx-alert anx-alert--warn">
       <Icon name="clock" :size="18" />
       <div class="anx-alert__body">
@@ -590,13 +594,8 @@ defineExpose({ load })
       </div>
 
       <div class="anx-panel__body anx-panel__body--tight">
-        <div v-if="loading" class="anx-empty kh-empty-inline">
-          <span class="kh-spin kh-spin--lg" />
-          <p class="anx-empty__title">正在读取 ~/.ssh …</p>
-        </div>
-
         <AppErrorState
-          v-else-if="loadError"
+          v-if="loadError"
           title="无法读取 ~/.ssh"
           :detail="loadError.message"
           @retry="load"
@@ -724,6 +723,7 @@ defineExpose({ load })
         </div>
       </div>
     </section>
+    </template>
 
     <!-- ══════ 生成密钥弹窗 ══════ -->
     <AppModal v-model="genOpen" title="生成 SSH 密钥" wide>

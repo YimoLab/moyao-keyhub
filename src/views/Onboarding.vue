@@ -414,9 +414,8 @@ onBeforeUnmount(() => {
             </p>
           </div>
 
-          <div v-if="scanning" class="anx-empty kh-empty-inline">
-            <span class="kh-spin kh-spin--lg" />
-            <p class="anx-empty__title">正在扫描 ~/.ssh …</p>
+          <div v-if="scanning" class="kh-sk-rows">
+            <span v-for="i in 4" :key="i" class="anx-sk kh-sk-row" />
           </div>
 
           <AlertBox

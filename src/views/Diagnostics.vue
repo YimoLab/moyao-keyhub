@@ -22,11 +22,13 @@ import SelectMenu from '../design/vue/ui/SelectMenu.vue'
 import SegmentedControl from '../design/vue/ui/SegmentedControl.vue'
 import AlertBox from '../design/vue/ui/AlertBox.vue'
 import AppModal from '../components/AppModal.vue'
+import PageSkeleton from '../components/PageSkeleton.vue'
 
 const toast = useToast()
 const store = useEnvStore()
 
 /* ══════ 目标来源 ══════ */
+const loading = ref(true)
 const hosts = ref([])
 const keys = ref([])
 const sourceMode = ref('alias') // alias | manual
@@ -368,10 +370,14 @@ function actionLabel(action) {
 }
 
 onMounted(async () => {
-  await loadTargets()
-  applyAlias()
-  await refreshPreview()
-  await loadHistory()
+  try {
+    await loadTargets()
+    applyAlias()
+    await refreshPreview()
+    await loadHistory()
+  } finally {
+    loading.value = false
+  }
 })
 </script>
 
@@ -382,6 +388,9 @@ onMounted(async () => {
       desc="按 Host 别名或直连地址执行一次 SSH 握手，失败时给出针对性诊断。不会自动联网。"
     />
 
+    <PageSkeleton v-if="loading" variant="diagnostics" />
+
+    <template v-else>
     <!-- ══════ 目标选择 ══════ -->
     <section class="anx-panel">
       <div class="anx-panel__head">
@@ -694,6 +703,7 @@ onMounted(async () => {
         </div>
       </div>
     </section>
+    </template>
 
     <!-- 联网二次确认 -->
     <AppModal v-model="confirmOpen" title="确认发起网络连接" :dismissable="false">

@@ -323,21 +323,22 @@ python scripts/gen_icons.py
    - `package.json`
    - `src-tauri/tauri.conf.json`
    - `src-tauri/Cargo.toml`
-2. 本地跑一次 `npm run build` 和 `cargo check`，确认版本与构建正常。
-3. 提交并推送 `main`。
-4. 打 tag（必须与版本一致）并推送：
+2. 写发行说明 `release-notes/<tag>.md`（例如 `release-notes/v0.2.1.md`）。这份 Markdown 会同时用于 GitHub Release 正文和 `latest.json` 的 `notes`，客户端更新弹窗会直接渲染它；文件不存在时回退到一句默认说明。
+3. 本地跑一次 `npm run build` 和 `cargo check`，确认版本与构建正常。
+4. 提交并推送 `main`。
+5. 打 tag（必须与版本一致）并推送：
 
    ```bash
    git tag v0.2.1
    git push origin v0.2.1
    ```
 
-5. 等待 GitHub Actions 的 `Release` 工作流完成（Windows NSIS）。
-6. 打开 Releases，核对草稿中的三件套：
+6. 等待 GitHub Actions 的 `Release` 工作流完成（Windows NSIS）。
+7. 打开 Releases，核对草稿中的三件套：
    - `KeyHub_<version>_x64-setup.exe`
    - `...setup.exe.sig`
    - `latest.json`
-7. 手动 **Publish release**。只有发布后，客户端才能读到 `latest.json`。
+8. 手动 **Publish release**。只有发布后，客户端才能读到 `latest.json`。
 
 ### GitHub Actions 做了什么
 
@@ -346,13 +347,15 @@ python scripts/gen_icons.py
 1. `npm ci` + Rust stable（Windows MSVC）。
 2. **校验签名密钥**：用 Secrets 对临时文件签名；Secret 缺失或格式错误会在构建前直接失败。
 3. **清理同 tag 旧草稿**：避免重跑时 GitHub 报 `ReleaseAsset already_exists`。
-4. `tauri-action` 构建 NSIS、上传安装包与 `.sig`（`includeUpdaterJson: false`）。
-5. **自行生成 `latest.json`**：
+4. **读取发行说明**：`release-notes/<tag>.md` 存在时作为 Release 正文，并写入 `latest.json` 的 `notes`；不存在时回退到默认文案。
+5. `tauri-action` 构建 NSIS、上传安装包与 `.sig`（`includeUpdaterJson: false`）。
+6. **自行生成 `latest.json`**：
    - 签名取自构建产物 `*.exe.sig`；
+   - `notes` 为发行说明原文，客户端更新弹窗渲染后展示；
    - 下载地址**构造为正式 tag URL**：
      `https://github.com/YimoLab/moyao-keyhub/releases/download/<tag>/<asset>`
    - 用 `gh release upload --clobber` 上传。
-6. 创建**草稿 Release**，等待人工发布。
+7. 创建**草稿 Release**，等待人工发布。
 
 > 不要用草稿 Release 的 `browser_download_url` 作为更新地址：草稿阶段它是 `untagged-...` 临时链接，发布后返回 404。
 

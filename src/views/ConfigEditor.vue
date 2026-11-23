@@ -21,6 +21,7 @@ import SegmentedControl from '../design/vue/ui/SegmentedControl.vue'
 import AppModal from '../components/AppModal.vue'
 import AppDrawer from '../components/AppDrawer.vue'
 import AppErrorState from '../components/AppErrorState.vue'
+import PageSkeleton from '../components/PageSkeleton.vue'
 
 const toast = useToast()
 const store = useEnvStore()
@@ -398,7 +399,7 @@ onMounted(async () => {
         >
           {{ doc.permDisplay || '—' }}
         </span>
-        <span v-else class="anx-badge anx-badge--neutral">文件不存在</span>
+        <span v-else-if="!loading" class="anx-badge anx-badge--neutral">文件不存在</span>
         <span v-if="doc?.hasManagedBlock" class="anx-badge anx-badge--ok">
           <Icon name="check" :size="12" />
           含墨钥托管块
@@ -415,10 +416,7 @@ onMounted(async () => {
     </div>
 
     <!-- 加载 / 错误 -->
-    <div v-if="loading" class="anx-empty">
-      <span class="kh-spin kh-spin--lg" />
-      <p class="anx-empty__title">正在解析 config …</p>
-    </div>
+    <PageSkeleton v-if="loading" variant="config" />
 
     <AppErrorState
       v-else-if="loadError"

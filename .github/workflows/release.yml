@@ -62,6 +62,26 @@ jobs:
             echo "没有需要清理的草稿"
           fi
 
+      - name: 读取发行说明
+        id: notes
+        shell: bash
+        run: |
+          set -euo pipefail
+          TAG="${GITHUB_REF_NAME}"
+          FILE="release-notes/${TAG}.md"
+          if [ -f "$FILE" ]; then
+            echo "使用发行说明：$FILE"
+            BODY="$(cat "$FILE")"
+          else
+            echo "未找到 $FILE，使用默认说明"
+            BODY="Windows 安装包与自动更新文件（latest.json / .sig）已生成。"
+          fi
+          {
+            echo 'body<<RELEASE_NOTES_EOF'
+            printf '%s\n' "$BODY"
+            echo 'RELEASE_NOTES_EOF'
+          } >> "$GITHUB_OUTPUT"
+
       - name: 构建、签名并创建 Release
         id: release
         uses: tauri-apps/tauri-action@v0
@@ -74,7 +94,7 @@ jobs:
           tagName: ${{ github.ref_name }}
           includeUpdaterJson: false
           releaseName: '墨钥 KeyHub ${{ github.ref_name }}'
-          releaseBody: 'Windows 安装包与自动更新文件（latest.json / .sig）已生成。'
+          releaseBody: ${{ steps.notes.outputs.body }}
           # 先创建草稿，核对产物后再手动发布；发布后 latest.json 才能被客户端读取
           releaseDraft: true
           prerelease: false
@@ -85,6 +105,7 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           RELEASE_ID: ${{ steps.release.outputs.releaseId }}
+          NOTES: ${{ steps.notes.outputs.body }}
         run: |
           set -euo pipefail
           TAG="${GITHUB_REF_NAME}"
@@ -105,7 +126,7 @@ jobs:
             const fs = require("fs");
             const content = {
               version: process.env.TAG.replace(/^v/, ""),
-              notes: "墨钥 KeyHub " + process.env.TAG,
+              notes: process.env.NOTES || ("墨钥 KeyHub " + process.env.TAG),
               pub_date: new Date().toISOString(),
               platforms: {
                 "windows-x86_64": {

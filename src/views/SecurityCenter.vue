@@ -19,6 +19,7 @@ import SelectMenu from '../design/vue/ui/SelectMenu.vue'
 import AlertBox from '../design/vue/ui/AlertBox.vue'
 import FieldInput from '../design/vue/ui/FieldInput.vue'
 import AppModal from '../components/AppModal.vue'
+import PageSkeleton from '../components/PageSkeleton.vue'
 
 const toast = useToast()
 const store = useEnvStore()
@@ -517,6 +518,9 @@ onMounted(async () => {
       desc="权限、口令、ssh-agent 与备份的整体状态。评分只反映当前可读取到的数据。"
     />
 
+    <PageSkeleton v-if="loading" variant="security" />
+
+    <template v-else>
     <!-- ══════ 顶部：评分 + 体检 ══════ -->
     <div class="kh-sec-hero kh-collapse">
       <!-- 评分卡 -->
@@ -569,9 +573,8 @@ onMounted(async () => {
           </div>
         </div>
         <div class="anx-panel__body">
-          <div v-if="loading" class="anx-empty kh-empty-inline">
-            <span class="kh-spin kh-spin--lg" />
-            <p class="anx-empty__title">正在体检…</p>
+          <div v-if="loading" class="kh-sk-rows">
+            <span v-for="i in 5" :key="i" class="anx-sk kh-sk-row" />
           </div>
           <ul v-else class="kh-list">
             <li v-for="c in checks" :key="c.key" class="kh-list__item kh-check-row">
@@ -919,9 +922,8 @@ onMounted(async () => {
           />
         </div>
 
-        <div v-if="auditLoading" class="anx-empty kh-empty-inline">
-          <span class="kh-spin kh-spin--lg" />
-          <p class="anx-empty__title">读取中…</p>
+        <div v-if="auditLoading" class="kh-sk-rows">
+          <span v-for="i in 4" :key="i" class="anx-sk kh-sk-row" />
         </div>
         <div v-else-if="!auditList.length" class="anx-empty kh-empty-inline">
           <div class="anx-empty__icon"><Icon name="file-text" :size="22" /></div>
@@ -943,6 +945,7 @@ onMounted(async () => {
         </div>
       </div>
     </section>
+    </template>
 
     <!-- ══════ 创建备份弹窗 ══════ -->
     <AppModal v-model="backupOpen" title="创建加密备份" wide>
