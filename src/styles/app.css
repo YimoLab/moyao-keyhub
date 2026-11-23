@@ -304,6 +304,7 @@ body {
 }
 .kh-env__row {
   display: flex;
+  align-items: baseline;
   justify-content: space-between;
   gap: 10px;
   padding: 3px 0;
@@ -311,7 +312,13 @@ body {
   font-size: 12px;
   color: var(--muted-text);
 }
+/* 标签不参与收缩：ssh-agent 这类标签被值挤成两行会非常难读 */
+.kh-env__row > span:first-child {
+  flex: none;
+  white-space: nowrap;
+}
 .kh-env__row b {
+  flex: 1 1 auto;
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -1167,6 +1174,28 @@ body {
   line-height: 1.6;
   color: var(--muted-text);
 }
+.kh-issue__host {
+  display: inline-block;
+  margin-right: 6px;
+  padding: 1px 6px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: var(--surface);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--ink);
+  vertical-align: 1px;
+}
+.kh-issue[role='button'] {
+  cursor: pointer;
+}
+.kh-issue[role='button']:hover {
+  border-color: var(--hairline-hover);
+}
+.kh-issue[role='button']:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+}
 .kh-cfg-save {
   display: grid;
   gap: 10px;
@@ -1176,6 +1205,21 @@ body {
   display: flex;
   align-items: center;
   gap: 6px;
+}
+.kh-cfg-save__error {
+  align-items: flex-start;
+  line-height: 1.6;
+}
+.kh-linkbtn {
+  flex: none;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  cursor: pointer;
 }
 .kh-cfg-save .kh-actions {
   display: grid;

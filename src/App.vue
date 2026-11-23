@@ -4,6 +4,7 @@ import { useRoute, useRouter } from 'vue-router'
 import { getCurrentWindow } from '@tauri-apps/api/window'
 import Icon from './design/vue/ui/Icon.vue'
 import RouteFade from './design/vue/ui/RouteFade.vue'
+import PageSkeleton from './components/PageSkeleton.vue'
 import OverlayHost from './design/vue/overlay/OverlayHost.vue'
 import ToastHost from './design/vue/overlay/ToastHost.vue'
 import WindowControls from './components/WindowControls.vue'
@@ -85,9 +86,32 @@ const SYS_NAV = [
   { name: 'env-check', label: '环境自检', icon: 'monitor' },
 ]
 
+/**
+ * 首次导航是否已经完成。
+ * 路由守卫要先读取偏好与环境摘要（决定是否跳引导页），这段等待期间
+ * RouterView 还没有组件；没有这个标志，主区域会先空白一大片再出现骨架。
+ */
+const routeReady = ref(false)
+
 const pageTitle = computed(() => {
+  if (!routeReady.value) return '加载中…'
   const hit = [...NAV, ...SYS_NAV].find((n) => n.name === route.name)
   return hit?.label || '墨钥 KeyHub'
+})
+
+/** 守卫阻塞时 route 还没解析，用 hash 推断目标页面，让启动骨架与页面结构一致 */
+const bootVariant = computed(() => {
+  const path = (window.location.hash.replace(/^#/, '') || '/key-vault').split('?')[0]
+  return (
+    {
+      '/key-vault': 'vault',
+      '/config': 'config',
+      '/security': 'security',
+      '/diagnostics': 'diagnostics',
+      '/env-check': 'env',
+      '/settings': 'settings',
+    }[path] || 'generic'
+  )
 })
 
 async function boot() {
@@ -99,6 +123,9 @@ onMounted(() => {
   if ('scrollRestoration' in history) history.scrollRestoration = 'manual'
   window.scrollTo(0, 0)
   boot()
+  router.isReady().finally(() => {
+    routeReady.value = true
+  })
   document.addEventListener('keydown', onGlobalKey)
 })
 
@@ -267,19 +294,21 @@ function onSearchKey(e) {
         <span class="anx-sidenav__label">环境状态</span>
         <div class="kh-env__row">
           <span>OpenSSH</span>
-          <b :class="'kh-tone--' + derived.sshTone">{{ env.sshLabel }}</b>
+          <b :class="'kh-tone--' + derived.sshTone" :title="env.sshLabel">{{ env.sshLabel }}</b>
         </div>
         <div class="kh-env__row">
           <span>Git</span>
-          <b :class="'kh-tone--' + derived.gitTone">{{ env.gitVersion || '—' }}</b>
+          <b :class="'kh-tone--' + derived.gitTone" :title="env.gitVersion || '未检测到'">
+            {{ env.gitVersion || '—' }}
+          </b>
         </div>
         <div class="kh-env__row">
           <span>~/.ssh 权限</span>
-          <b :class="'kh-tone--' + derived.permTone">{{ env.permLabel }}</b>
+          <b :class="'kh-tone--' + derived.permTone" :title="env.permLabel">{{ env.permLabel }}</b>
         </div>
         <div class="kh-env__row">
           <span>ssh-agent</span>
-          <b :class="'kh-tone--' + derived.agentTone">{{ env.agentLabel }}</b>
+          <b :class="'kh-tone--' + derived.agentTone" :title="env.agentLabel">{{ env.agentLabel }}</b>
         </div>
       </div>
     </aside>
@@ -343,7 +372,9 @@ function onSearchKey(e) {
 
       <main class="anx-shell__body">
         <div class="anx-shell__inner">
-          <RouteFade />
+          <!-- 首次导航完成前显示骨架，避免守卫读取偏好期间出现大片空白 -->
+          <PageSkeleton v-if="!routeReady" :variant="bootVariant" />
+          <RouteFade v-else />
         </div>
       </main>
     </div>

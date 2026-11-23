@@ -519,10 +519,30 @@ pub fn write_config(content: &str) -> KhResult<SaveResult> {
     // 1) 内容自检：能被解析，且不存在致命结构问题
     let (hosts, _) = parse_hosts(content)?;
     let issues = validate_hosts(&hosts);
-    if let Some(fatal) = issues.iter().find(|i| i.level == "error") {
+    let fatal: Vec<&CheckIssue> = issues.iter().filter(|i| i.level == "error").collect();
+    if !fatal.is_empty() {
+        // 一次性列出全部错误，并带上 Host 别名与修复建议：
+        // 只返回第一条、或只说「校验未通过」，用户无法知道该改哪个 Host。
+        let detail = fatal
+            .iter()
+            .map(|i| {
+                let who = if i.alias.trim().is_empty() {
+                    String::new()
+                } else {
+                    format!("Host「{}」：", i.alias.trim())
+                };
+                if i.hint.is_empty() {
+                    format!("{}{}", who, i.message)
+                } else {
+                    format!("{}{}。{}", who, i.message, i.hint)
+                }
+            })
+            .collect::<Vec<_>>()
+            .join("\n");
         return Err(KhError::InvalidInput(format!(
-            "配置未通过校验：{}（{}）",
-            fatal.message, fatal.hint
+            "配置未通过校验（{} 个错误）：\n{}",
+            fatal.len(),
+            detail
         )));
     }
 

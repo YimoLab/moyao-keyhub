@@ -15,6 +15,7 @@ import { useEnvStore } from '../lib/store'
 import Icon from '../design/vue/ui/Icon.vue'
 import PageHead from '../design/vue/ui/PageHead.vue'
 import EmptyState from '../design/vue/ui/EmptyState.vue'
+import AlertBox from '../design/vue/ui/AlertBox.vue'
 import FieldInput from '../design/vue/ui/FieldInput.vue'
 import SelectMenu from '../design/vue/ui/SelectMenu.vue'
 import SegmentedControl from '../design/vue/ui/SegmentedControl.vue'
@@ -196,22 +197,92 @@ const issueByAlias = computed(() => {
   return map
 })
 
+/* 把校验问题落到具体字段，表单里就地提示「哪里错、怎么改」 */
+const FIELD_RULES = [
+  { field: 'hostname', test: /HostName/ },
+  { field: 'user', test: /User/ },
+  { field: 'port', test: /端口/ },
+  { field: 'alias', test: /别名|Host 重复/ },
+  { field: 'identity', test: /IdentityFile|密钥|路径/ },
+]
+
+function fieldIssue(field) {
+  const h = hosts.value.find((x) => x.id === selectedId.value)
+  if (!h) return null
+  const alias = (h.alias || '').trim().toLowerCase()
+  return (
+    issues.value.find(
+      (i) =>
+        i.level === 'error' &&
+        (i.alias || '').trim().toLowerCase() === alias &&
+        FIELD_RULES.some((r) => r.field === field && r.test.test(i.message)),
+    ) || null
+  )
+}
+
+function fieldErrorText(field) {
+  const i = fieldIssue(field)
+  if (!i) return ''
+  return i.hint ? `${i.message}。${i.hint}` : i.message
+}
+
+/** 单条问题的可读标签：带上 Host 别名，避免「说了等于没说」 */
+function issueLabel(i) {
+  if (!i) return ''
+  return `${i.alias ? `Host「${i.alias}」：` : ''}${i.message}`
+}
+
+const firstError = computed(() => errors.value[0] || null)
+const firstErrorText = computed(() => {
+  const e = firstError.value
+  if (!e) return ''
+  const more = errors.value.length > 1 ? `（另有 ${errors.value.length - 1} 个错误）` : ''
+  return `${issueLabel(e)}${e.hint ? `。${e.hint}` : ''}${more}`
+})
+
+/** 定位：选中出问题的 Host 并滚动到编辑区（Raw 模式滚动到校验清单） */
+function focusIssue(issue) {
+  if (!issue) return
+  if (issue.alias && mode.value === 'form') {
+    const hit = hosts.value.find(
+      (h) => (h.alias || '').toLowerCase() === issue.alias.toLowerCase(),
+    )
+    if (hit) selectedId.value = hit.id
+  }
+  const target =
+    mode.value === 'form'
+      ? document.querySelector('.kh-cfg-editor')
+      : document.querySelector('.kh-cfg-issues')
+  target?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+}
+
+function focusFirstError() {
+  focusIssue(firstError.value)
+}
+
 /* ══════ 保存 / 回滚 ══════ */
 const saveOpen = ref(false)
 const saveNote = ref('')
+/** 保存被后端拒绝时的详细原因，保留在弹窗里而不是一闪而过的 toast */
+const saveError = ref('')
 
-function askSave() {
+async function askSave() {
   if (!dirty.value) return
+  // 保存前再校验一次，避免校验还在防抖/请求中时带着已知错误进入确认框
+  await runValidate()
   if (hasBlocking.value) {
-    toast.push('存在必须修正的问题，请先处理校验清单中的错误', 'danger')
+    toast.push(firstErrorText.value || '存在必须修正的问题，请先处理校验清单中的错误', 'danger')
+    focusFirstError()
     return
   }
   saveNote.value = ''
+  saveError.value = ''
   saveOpen.value = true
 }
 
 async function doSave() {
   saving.value = true
+  saveError.value = ''
   try {
     let res
     if (mode.value === 'form') {
@@ -227,7 +298,10 @@ async function doSave() {
     await load()
     await store.refreshEnv()
   } catch (e) {
-    toast.push(e.message || '保存失败', 'danger')
+    // 停在弹窗里展示完整原因；同时刷新校验清单，标出具体是哪个 Host
+    saveError.value = e.message || '保存失败'
+    await runValidate()
+    if (hasBlocking.value) focusFirstError()
   } finally {
     saving.value = false
   }
@@ -531,6 +605,7 @@ onMounted(async () => {
                   placeholder="github-work"
                   :model-value="selected.alias"
                   hint="用于 ssh 别名 直接连接，不能含空格"
+                  :error="fieldErrorText('alias')"
                   @update:model-value="patchHost('alias', $event)"
                 />
                 <FieldInput
@@ -539,6 +614,7 @@ onMounted(async () => {
                   placeholder="github.com 或 192.168.1.10"
                   :model-value="selected.hostname"
                   hint="留空则直接用别名作为域名"
+                  :error="fieldErrorText('hostname')"
                   @update:model-value="patchHost('hostname', $event)"
                 />
               </div>
@@ -549,6 +625,7 @@ onMounted(async () => {
                   mono
                   placeholder="root / ubuntu / git"
                   :model-value="selected.user"
+                  :error="fieldErrorText('user')"
                   @update:model-value="patchHost('user', $event)"
                 />
                 <div class="anx-field kh-field">
@@ -563,7 +640,12 @@ onMounted(async () => {
                     :value="selected.port || ''"
                     @input="patchHost('port', Number($event.target.value) || 0)"
                   />
-                  <p v-if="selected.port > 65535" class="anx-field__error">端口超出 1-65535 范围</p>
+                  <p
+                    v-if="fieldErrorText('port') || selected.port > 65535"
+                    class="anx-field__error"
+                  >
+                    {{ fieldErrorText('port') || '端口超出 1-65535 范围' }}
+                  </p>
                 </div>
               </div>
 
@@ -585,6 +667,9 @@ onMounted(async () => {
                     @input="patchHost('identity', $event.target.value)"
                   />
                 </div>
+                <p v-if="fieldErrorText('identity')" class="anx-field__error">
+                  {{ fieldErrorText('identity') }}
+                </p>
                 <p class="anx-field__hint">
                   选择已有密钥会自动填写为 <code class="kh-code-inline">~/.ssh/文件名</code>；也可手动输入任意路径
                 </p>
@@ -669,14 +754,27 @@ onMounted(async () => {
             <p class="anx-empty__text">所有 Host 的别名、路径与端口都通过了检查。</p>
           </div>
 
-          <div v-for="(i, idx) in issues" :key="idx" class="kh-issue" :class="'kh-issue--' + i.level">
+          <div
+            v-for="(i, idx) in issues"
+            :key="idx"
+            class="kh-issue"
+            :class="'kh-issue--' + i.level"
+            :role="i.alias ? 'button' : undefined"
+            :tabindex="i.alias ? 0 : undefined"
+            :title="i.alias ? '定位到这个 Host' : undefined"
+            @click="focusIssue(i)"
+            @keydown.enter="focusIssue(i)"
+          >
             <Icon
               :name="i.level === 'error' ? 'alert-triangle' : 'info'"
               :size="15"
               class="kh-issue__icon"
             />
             <div class="kh-grow">
-              <div class="kh-issue__msg">{{ i.message }}</div>
+              <div class="kh-issue__msg">
+                <span v-if="i.alias" class="kh-issue__host">{{ i.alias }}</span>
+                {{ i.message }}
+              </div>
               <div v-if="i.hint" class="kh-issue__hint">{{ i.hint }}</div>
             </div>
           </div>
@@ -699,8 +797,10 @@ onMounted(async () => {
               保存
             </button>
           </div>
-          <p v-if="hasBlocking" class="kh-fine kh-danger-text">
-            存在 {{ errors.length }} 个错误，修复后才能保存
+          <p v-if="hasBlocking" class="kh-fine kh-danger-text kh-cfg-save__error">
+            <Icon name="alert-triangle" :size="13" />
+            <span>{{ firstErrorText }}</span>
+            <button type="button" class="kh-linkbtn" @click="focusFirstError">定位</button>
           </p>
         </div>
       </aside>
@@ -709,7 +809,13 @@ onMounted(async () => {
     <!-- ══════ 保存确认 ══════ -->
     <AppModal v-model="saveOpen" title="保存 config" :dismissable="false">
       <div class="kh-confirm">
-        <span class="kh-cf-icon kh-ok-icon"><Icon name="check" :size="20" /></span>
+        <AlertBox
+          v-if="saveError"
+          tone="danger"
+          title="无法保存"
+          :lines="saveError.split('\n')"
+        />
+        <span v-if="!saveError" class="kh-cf-icon kh-ok-icon"><Icon name="check" :size="20" /></span>
         <p class="anx-t-sm">
           即将写入 <code class="kh-code-inline">~/.ssh/config</code>。
         </p>
