@@ -13,6 +13,7 @@
  * 红线：只有用户点击「开始测试」才会发起网络连接，且会在按钮上明确提示。
  */
 import { ref, computed, onMounted } from 'vue'
+import { useRouter } from 'vue-router'
 import * as api from '../lib/api'
 import { useToast } from '../lib/toast'
 import { useEnvStore } from '../lib/store'
@@ -26,6 +27,7 @@ import PageSkeleton from '../components/PageSkeleton.vue'
 
 const toast = useToast()
 const store = useEnvStore()
+const router = useRouter()
 
 /* ══════ 目标来源 ══════ */
 const loading = ref(true)
@@ -168,10 +170,21 @@ async function runTest() {
     // 模拟终端实时输出，营造透明感
     if (res.stdout) typeOut(res.stdout + '\n')
     if (res.stderr) typeOut(res.stderr + '\n')
-    typeOut(`\n[进程退出，代码 ${res.exitCode}，耗时 ${res.elapsedMs}ms]\n`)
+    if (res.remoteKind === 'git-hosting' && res.success) {
+      // 说明退出码为什么可能不是 0，避免用户误以为失败
+      typeOut(
+        `\n[认证完成，耗时 ${res.elapsedMs}ms]\n` +
+          '[Git 托管平台不提供 shell，退出码非 0 属正常现象]\n',
+      )
+    } else {
+      typeOut(`\n[进程退出，代码 ${res.exitCode}，耗时 ${res.elapsedMs}ms]\n`)
+    }
 
     if (res.success) {
-      toast.push(`连接成功（${res.elapsedMs}ms）`, 'success')
+      toast.push(
+        res.remoteKind === 'git-hosting' ? res.summary : `连接成功（${res.elapsedMs}ms）`,
+        'success',
+      )
     } else {
       toast.push(res.summary || '连接失败', 'danger')
     }
@@ -230,6 +243,10 @@ async function runAction(action) {
       break
     case 'show-known-hosts':
       await showKnownHosts()
+      break
+    case 'open-config':
+      router.push('/config')
+      toast.push('请在 SSH Config 中修改该 Host 的 User', 'info')
       break
     case 'check-port':
       toast.push('请确认服务器 sshd 正在监听该端口', 'info')
@@ -365,6 +382,7 @@ function actionLabel(action) {
       'retry-verbose': '开启详细模式重试',
       'show-known-hosts': '查看 known_hosts',
       'check-port': '检查端口',
+      'open-config': '去修改 config',
     }[action] || '处理'
   )
 }
@@ -567,7 +585,9 @@ onMounted(async () => {
               <Icon :name="result.success ? 'check' : 'alert-triangle'" :size="20" />
             </span>
             <div class="kh-grow">
-              <div class="anx-t-h3">{{ result.success ? '连接成功' : '连接失败' }}</div>
+              <div class="anx-t-h3">
+                {{ result.success ? (result.remoteKind === 'git-hosting' ? '认证成功' : '连接成功') : '连接失败' }}
+              </div>
               <div class="anx-t-mono anx-t-muted">{{ result.target }}</div>
             </div>
           </div>
@@ -579,6 +599,10 @@ onMounted(async () => {
             <div class="kh-metric">
               <span>退出码</span>
               <code>{{ result.exitCode }}</code>
+            </div>
+            <div v-if="result.remoteKind === 'git-hosting'" class="kh-metric">
+              <span>平台</span>
+              <code>Git 托管（无 shell）</code>
             </div>
           </div>
           <div v-if="result.remoteBanner" class="anx-panel__foot kh-remote-banner">

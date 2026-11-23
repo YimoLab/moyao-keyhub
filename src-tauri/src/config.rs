@@ -489,13 +489,39 @@ pub fn validate_hosts(hosts: &[HostEntry]) -> Vec<CheckIssue> {
                 message: "未配置 User，将使用当前系统用户名".into(),
                 hint: "云端服务器通常需要显式指定，如 root / ubuntu".into(),
             });
-        } else if h.user.contains('@') {
-            issues.push(CheckIssue {
-                level: "error".into(),
-                alias: a.into(),
-                message: "User 里出现了 @ 符号".into(),
-                hint: "User 只填用户名，主机名写在 HostName 字段".into(),
-            });
+        } else {
+            let user = h.user.trim();
+            if user.contains('@') {
+                issues.push(CheckIssue {
+                    level: "error".into(),
+                    alias: a.into(),
+                    message: "User 里出现了 @ 符号".into(),
+                    hint: "User 只填用户名，主机名写在 HostName 字段".into(),
+                });
+            } else if user.contains('/') || user.contains('\\') {
+                // 典型误填：把 clone 地址里的仓库路径（org/repo）当成了 User。
+                // ssh 会拿它当登录名，服务端必然拒绝，提前拦住比事后猜「公钥没加」高效得多。
+                issues.push(CheckIssue {
+                    level: "error".into(),
+                    alias: a.into(),
+                    message: format!("User 里出现了路径分隔符：{}", user),
+                    hint: "User 只填登录用户名；Git 托管平台通常固定为 git，仓库路径（如 org/repo）只属于 clone 地址，不必写进 config".into(),
+                });
+            } else if user.contains(':') {
+                issues.push(CheckIssue {
+                    level: "error".into(),
+                    alias: a.into(),
+                    message: format!("User 里出现了冒号：{}", user),
+                    hint: "`host:path` 是 clone 地址的写法；User 只填登录名，主机名写 HostName，仓库路径只用于 clone".into(),
+                });
+            } else if user.contains(char::is_whitespace) {
+                issues.push(CheckIssue {
+                    level: "error".into(),
+                    alias: a.into(),
+                    message: "User 含空格".into(),
+                    hint: "去掉空格，登录用户名不能包含空白字符".into(),
+                });
+            }
         }
 
         // 5) IdentityFile 存在性
@@ -856,5 +882,24 @@ mod tests {
         }];
         let block = render_managed_block(&hosts);
         assert!(!block.contains("由墨钥管理 · 由墨钥管理"), "{block}");
+    }
+
+    /// 把 clone 地址里的仓库路径当成 User 是高频误填，必须拦下并指向 git 用户。
+    #[test]
+    fn repository_path_in_user_is_reported() {
+        let hosts = vec![HostEntry {
+            alias: "ftms".into(),
+            hostname: "codehub.devcloud.cn-north-4.huaweicloud.com".into(),
+            user: "ftms_dms_devops/DMSsrv-TCCN-Dev-leijing".into(),
+            ..Default::default()
+        }];
+        let err = validate_hosts(&hosts)
+            .into_iter()
+            .find(|i| i.level == "error" && i.message.contains("User"))
+            .expect("应报错");
+        assert!(
+            err.hint.contains("git"),
+            "hint 应提示 Git 托管平台的用户名为 git: {err:?}"
+        );
     }
 }

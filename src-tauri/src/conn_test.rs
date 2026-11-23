@@ -10,6 +10,12 @@
 //! - 命令构造使用 BatchMode 类参数避免交互卡死，
 //!   若因口令导致认证失败，诊断会明确给出「加入 agent」的处置建议
 //! - 所有输出脱敏后返回：绝不含私钥内容
+//!
+//! 远端策略分两类：
+//! - 普通主机：远端执行只读探测 `echo KEYHUB_OK && uname -a`，以退出码 + 标记判定成功
+//! - Git 托管平台（GitHub / GitLab / Gitee / 华为云 CodeArts 等）不提供 shell，
+//!   不接受任意命令。对它们只做 `ssh -T` 认证探测，并以服务端欢迎语判定成功，
+//!   不能依赖退出码（GitHub 返回 1、CodeArts 返回 128）
 
 use std::io::Read;
 use std::process::{Child, Stdio};
@@ -17,6 +23,7 @@ use std::time::{Duration, Instant};
 
 use serde::{Deserialize, Serialize};
 
+use crate::config;
 use crate::env;
 use crate::error::{KhError, KhResult};
 use crate::paths;
@@ -74,6 +81,9 @@ pub struct TestResult {
     pub target: String,
     /// 实际执行的命令（脱敏后，供用户核对）
     pub command: String,
+    /// 远端类型：`shell`（普通主机）或 `git-hosting`（Git 托管平台）
+    #[serde(default)]
+    pub remote_kind: String,
     /// 是否成功
     pub success: bool,
     /// 退出码
@@ -90,6 +100,155 @@ pub struct TestResult {
     pub diagnoses: Vec<Diagnosis>,
     /// 一句话结论
     pub summary: String,
+}
+
+/// 远端类型
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum RemoteKind {
+    /// 普通 shell 主机，可执行远端命令
+    Shell,
+    /// Git 托管平台，只提供 git 协议，不提供 shell
+    GitHosting,
+}
+
+impl RemoteKind {
+    fn as_str(self) -> &'static str {
+        match self {
+            RemoteKind::Shell => "shell",
+            RemoteKind::GitHosting => "git-hosting",
+        }
+    }
+
+    fn is_git(self) -> bool {
+        matches!(self, RemoteKind::GitHosting)
+    }
+}
+
+/// 别名 / 直连参数解析后的实际连接身份。
+///
+/// 测试表单走别名模式时只传别名，HostName / User 都在 config 里；
+/// 没有这两个值就无法判断远端是普通主机还是 Git 托管平台，
+/// 也无法在诊断里指出「User 填错了」。
+#[derive(Debug, Clone, Default)]
+struct EffectiveTarget {
+    hostname: String,
+    user: String,
+}
+
+fn resolve_target(opts: &TestOpts) -> EffectiveTarget {
+    let alias = opts.alias.trim();
+    if !alias.is_empty() {
+        if let Ok(doc) = config::read_config() {
+            if let Some(h) = doc
+                .hosts
+                .iter()
+                .find(|h| h.alias.trim().eq_ignore_ascii_case(alias))
+            {
+                return EffectiveTarget {
+                    // 未配置 HostName 时，OpenSSH 会把别名本身当作域名
+                    hostname: if h.hostname.trim().is_empty() {
+                        alias.to_string()
+                    } else {
+                        h.hostname.trim().to_string()
+                    },
+                    user: h.user.trim().to_string(),
+                };
+            }
+        }
+        // 读不到 config 或没有该 Host：仍按别名当域名处理
+        return EffectiveTarget {
+            hostname: alias.to_string(),
+            user: String::new(),
+        };
+    }
+    EffectiveTarget {
+        hostname: opts.hostname.trim().to_string(),
+        user: opts.user.trim().to_string(),
+    }
+}
+
+/// 判断远端是否为 Git 托管平台。
+///
+/// 两条线索：
+/// - 用户名固定为 `git` 是业界通行约定（GitHub / GitLab / Gitee / CodeArts 都是）
+/// - 域名属于已知托管服务，或带有 `gitlab` / `gitea` / `codehub` 等自建服务特征
+fn classify_remote(t: &EffectiveTarget) -> RemoteKind {
+    let host = t
+        .hostname
+        .trim()
+        .trim_end_matches('.')
+        .to_ascii_lowercase();
+    let user = t.user.trim().to_ascii_lowercase();
+
+    if user == "git" {
+        return RemoteKind::GitHosting;
+    }
+    if host.is_empty() {
+        return RemoteKind::Shell;
+    }
+
+    const GIT_DOMAINS: &[&str] = &[
+        "github.com",
+        "gitlab.com",
+        "gitee.com",
+        "codeberg.org",
+        "bitbucket.org",
+        "gitcode.com",
+        "git.sr.ht",
+        "ssh.dev.azure.com",
+    ];
+    if GIT_DOMAINS.iter().any(|d| {
+        host == *d
+            || host
+                .strip_suffix(d)
+                .map(|prefix| prefix.ends_with('.'))
+                .unwrap_or(false)
+    }) {
+        return RemoteKind::GitHosting;
+    }
+
+    // 自建 GitLab / Gitea / 华为云 CodeArts 等：域名里带服务特征
+    const GIT_KEYWORDS: &[&str] = &["gitlab", "gitea", "gogs", "codehub", "codearts"];
+    if GIT_KEYWORDS.iter().any(|k| host.contains(k)) || host.starts_with("git.") {
+        return RemoteKind::GitHosting;
+    }
+
+    RemoteKind::Shell
+}
+
+/// Git 托管平台认证成功的判定。
+///
+/// 这些服务的 `ssh -T` 普遍以非 0 退出：GitHub 返回 1，华为云 CodeArts 返回 128。
+/// 退出码只说明「没有 shell 会话」，不代表失败，必须看服务端欢迎语。
+/// 反过来说，ssh 在认证失败时不会返回 0，所以退出码 0 同样可以判定成功。
+fn git_auth_succeeded(output: &str, exit_code: i32) -> bool {
+    let low = output.to_ascii_lowercase();
+    const OK_MARKERS: &[&str] = &[
+        "successfully authenticated",
+        "does not provide shell access",
+        "shell access is disabled",
+        "welcome to gitlab",
+        "welcome to codearts repo",
+        "welcome to gitee",
+        "authenticated via ssh key",
+    ];
+    if OK_MARKERS.iter().any(|m| low.contains(m)) {
+        return true;
+    }
+    exit_code == 0
+}
+
+/// User 字段是否被填成了地址 / 路径的一部分。
+///
+/// 典型误填：把 `git@host:org/repo.git` 里的 `org/repo` 当作 User。
+/// 这种值不可能是合法登录名，认证必然失败。
+fn user_looks_like_path(user: &str) -> bool {
+    let u = user.trim();
+    !u.is_empty()
+        && (u.contains('/')
+            || u.contains('\\')
+            || u.contains(':')
+            || u.contains(char::is_whitespace))
 }
 
 /// 连通测试历史记录
@@ -159,6 +318,8 @@ pub fn test_connection(opts: TestOpts) -> KhResult<TestResult> {
         opts.timeout_secs
     };
     let target = build_target(&opts);
+    let effective = resolve_target(&opts);
+    let kind = classify_remote(&effective);
 
     // 构造命令：所有命令都带这些安全参数
     let mut args: Vec<String> = Vec::new();
@@ -177,6 +338,11 @@ pub fn test_connection(opts: TestOpts) -> KhResult<TestResult> {
 
     if opts.verbose {
         args.push("-v".into());
+    }
+
+    if kind.is_git() {
+        // Git 托管平台不提供 shell：只做认证探测，不发送任何远端命令
+        args.push("-T".into());
     }
 
     if !opts.alias.trim().is_empty() {
@@ -208,8 +374,12 @@ pub fn test_connection(opts: TestOpts) -> KhResult<TestResult> {
         args.push(dest);
     }
 
-    // 远端执行只读探测命令确认链路可用
-    args.push("echo KEYHUB_OK && uname -a".into());
+    // 普通主机：远端执行只读探测命令确认链路可用。
+    // Git 托管平台没有 shell，发送任何命令都会被拒绝（如 CodeArts 返回
+    // `invalid action`），所以只靠 `-T` 完成握手与认证即可。
+    if !kind.is_git() {
+        args.push("echo KEYHUB_OK && uname -a".into());
+    }
 
     let display_cmd = format!("ssh {}", shell_join(&args));
 
@@ -256,23 +426,66 @@ pub fn test_connection(opts: TestOpts) -> KhResult<TestResult> {
     }
     let exit_code = child.wait().map(|s| s.code().unwrap_or(-1)).unwrap_or(-1);
 
-    let success = !timed_out && exit_code == 0 && stdout.contains("KEYHUB_OK");
+    let raw_output = format!("{}\n{}", stdout, stderr);
+    let success = !timed_out
+        && match kind {
+            RemoteKind::Shell => exit_code == 0 && stdout.contains("KEYHUB_OK"),
+            RemoteKind::GitHosting => git_auth_succeeded(&raw_output, exit_code),
+        };
 
     // 脱敏：把 home 路径换成 ~
     let stdout = sanitize(&stdout);
     let stderr = sanitize(&stderr);
-    let remote_banner = stdout
-        .lines()
-        .map(|s| s.trim())
-        .find(|s| !s.is_empty() && !s.contains("KEYHUB_OK"))
-        .map(|s| s.to_string());
+    // Git 平台的欢迎语走 stderr（形如 `remote: Welcome to ...`）；
+    // 普通主机只看 stdout，避免把失败时的报错当成远端标识
+    let banner_src = if kind.is_git() {
+        format!("{}\n{}", stdout, stderr)
+    } else {
+        stdout.clone()
+    };
+    let remote_banner = if success {
+        let candidates: Vec<&str> = banner_src
+            .lines()
+            .map(|s| s.trim())
+            .map(|s| s.strip_prefix("remote:").unwrap_or(s).trim())
+            .filter(|s| !s.is_empty() && !s.contains("KEYHUB_OK"))
+            .collect();
+        let pick = if kind.is_git() {
+            // 详细模式下 stderr 前几行是 OpenSSH 的调试信息，
+            // 优先挑出平台真正的欢迎语
+            candidates
+                .iter()
+                .find(|s| {
+                    let low = s.to_ascii_lowercase();
+                    low.contains("welcome")
+                        || low.contains("authenticated")
+                        || low.contains("shell access")
+                })
+                .or_else(|| candidates.first())
+        } else {
+            candidates.first()
+        };
+        pick.map(|s| s.to_string())
+    } else {
+        // 失败时 stderr 里是报错信息，不应冒充「远端标识」
+        None
+    };
 
-    let diagnoses = diagnose(&opts, timed_out, exit_code, &stderr, success);
-    let summary = one_line_summary(success, &diagnoses, timed_out);
+    let diagnoses = diagnose(
+        &opts,
+        &effective,
+        kind,
+        timed_out,
+        exit_code,
+        &stderr,
+        success,
+    );
+    let summary = one_line_summary(success, kind, &diagnoses, timed_out);
 
     let result = TestResult {
         target: target.clone(),
         command: display_cmd,
+        remote_kind: kind.as_str().into(),
         success,
         exit_code: if timed_out { 124 } else { exit_code },
         elapsed_ms,
@@ -346,6 +559,8 @@ fn sanitize(s: &str) -> String {
 /// 智能诊断：把 ssh 报错翻译成处置建议
 fn diagnose(
     opts: &TestOpts,
+    target: &EffectiveTarget,
+    kind: RemoteKind,
     timed_out: bool,
     exit_code: i32,
     stderr: &str,
@@ -357,8 +572,17 @@ fn diagnose(
     if success {
         d.push(Diagnosis {
             level: "ok".into(),
-            title: "链路正常".into(),
-            detail: "已完成 SSH 握手并在远端执行了只读探测命令".into(),
+            title: if kind.is_git() {
+                "认证成功".into()
+            } else {
+                "链路正常".into()
+            },
+            detail: if kind.is_git() {
+                "已完成 SSH 握手并通过公钥认证。Git 托管平台不提供 shell，退出码非 0 属正常现象"
+                    .into()
+            } else {
+                "已完成 SSH 握手并在远端执行了只读探测命令".into()
+            },
             fix: String::new(),
             action: String::new(),
         });
@@ -417,10 +641,10 @@ fn diagnose(
         });
     }
     if low.contains("could not resolve hostname") || low.contains("name or service not known") {
-        let host = if opts.hostname.trim().is_empty() {
+        let host = if target.hostname.trim().is_empty() {
             opts.alias.trim().to_string()
         } else {
-            opts.hostname.trim().to_string()
+            target.hostname.trim().to_string()
         };
         d.push(Diagnosis {
             level: "error".into(),
@@ -434,7 +658,50 @@ fn diagnose(
     // 3) 认证类
     if low.contains("permission denied (publickey") || low.contains("no supported authentication") {
         let idf = opts.identity.trim();
-        if idf.is_empty() && opts.alias.trim().is_empty() {
+        let alias = opts.alias.trim();
+        let user = target.user.trim();
+
+        if user_looks_like_path(user) {
+            // 最常见的新手误填：把 clone 地址里的仓库路径当成了用户名。
+            // 此时再提示「公钥没写入 authorized_keys」只会把排查引向错误方向。
+            d.push(Diagnosis {
+                level: "error".into(),
+                title: "User 字段填的不是用户名".into(),
+                detail: format!(
+                    "当前 User 为 `{}`，其中包含路径/地址分隔符，ssh 会把它当作登录名发起认证",
+                    user
+                ),
+                fix: if alias.is_empty() {
+                    "把「登录用户」改成真正的用户名：Git 托管平台通常固定为 git，仓库路径（如 org/repo）只属于 clone 地址".into()
+                } else {
+                    format!(
+                        "到「SSH Config」把 Host `{}` 的 User 改成真正的登录名：Git 托管平台通常固定为 git",
+                        alias
+                    )
+                },
+                action: "open-config".into(),
+            });
+        } else if kind.is_git() && user.is_empty() {
+            d.push(Diagnosis {
+                level: "error".into(),
+                title: "Git 托管平台需要显式指定 User".into(),
+                detail: "当前 Host 没有配置 User，ssh 会使用本机系统用户名；Git 托管平台只按 git 用户匹配公钥"
+                    .into(),
+                fix: "在 config 中为该 Host 增加 `User git`".into(),
+                action: "open-config".into(),
+            });
+        } else if kind.is_git() && !user.eq_ignore_ascii_case("git") {
+            d.push(Diagnosis {
+                level: "error".into(),
+                title: "Git 托管平台的 SSH 用户名通常是 git".into(),
+                detail: format!(
+                    "当前 User 为 `{}`。GitHub / GitLab / Gitee / CodeArts 等服务只用 `git` 用户匹配公钥，填账号名会导致 publickey 被拒",
+                    user
+                ),
+                fix: "把该 Host 的 User 改为 git 后重试".into(),
+                action: "open-config".into(),
+            });
+        } else if idf.is_empty() && alias.is_empty() {
             d.push(Diagnosis {
                 level: "error".into(),
                 title: "未指定密钥，服务端拒绝了默认密钥".into(),
@@ -455,6 +722,16 @@ fn diagnose(
                     detail: format!("找不到 {}", idf),
                     fix: "在密钥库中确认文件名，或重新生成".into(),
                     action: "open-vault".into(),
+                });
+            } else if !alias.is_empty() {
+                // 别名模式下 IdentityFile / User 都由 config 决定，不能只怪 authorized_keys
+                d.push(Diagnosis {
+                    level: "error".into(),
+                    title: "公钥未被服务端接受".into(),
+                    detail: format!("服务端拒绝了 config 别名 `{}` 使用的密钥", alias),
+                    fix: "检查该 Host 的 User、IdentityFile 是否正确；确认对应公钥已添加到代码托管平台或服务器的 authorized_keys"
+                        .into(),
+                    action: "open-config".into(),
                 });
             } else {
                 d.push(Diagnosis {
@@ -518,9 +795,8 @@ fn diagnose(
 
     // 5) 非交互下无法输入口令
     if exit_code != 0 && (low.contains("batchmode") || low.contains("password")) {
-        let has = d
-            .iter()
-            .any(|x| x.action == "start-agent" || x.title.contains("公钥未被服务端接受"));
+        // 已经有明确的 error 结论时不再补口令提示，避免把排查方向带偏
+        let has = d.iter().any(|x| x.level == "error" || x.action == "start-agent");
         if !has {
             d.push(Diagnosis {
                 level: "warn".into(),
@@ -561,9 +837,13 @@ fn diagnose(
     d
 }
 
-fn one_line_summary(success: bool, d: &[Diagnosis], timed_out: bool) -> String {
+fn one_line_summary(success: bool, kind: RemoteKind, d: &[Diagnosis], timed_out: bool) -> String {
     if success {
-        return "连接成功，链路可用".into();
+        return if kind.is_git() {
+            "认证成功（Git 托管平台不提供 shell）".into()
+        } else {
+            "连接成功，链路可用".into()
+        };
     }
     if timed_out {
         return "连接超时，未能建立会话".into();
@@ -686,6 +966,12 @@ pub fn preview_command(opts: TestOpts, timeout_secs: u32) -> String {
         "-o".into(),
         "BatchMode=yes".into(),
     ];
+    let effective = resolve_target(&opts);
+    let kind = classify_remote(&effective);
+    if kind.is_git() {
+        // 与真实执行保持一致：Git 托管平台只做认证探测
+        args.push("-T".into());
+    }
     if !opts.alias.trim().is_empty() {
         args.push(opts.alias.trim().into());
     } else {
@@ -705,11 +991,94 @@ pub fn preview_command(opts: TestOpts, timeout_secs: u32) -> String {
             format!("{}@{}", user, host)
         });
     }
-    args.push("echo KEYHUB_OK && uname -a".into());
+    if !kind.is_git() {
+        args.push("echo KEYHUB_OK && uname -a".into());
+    }
     format!("{} {}", ssh, shell_join(&args))
 }
 
 /// 操作系统平台标识（诊断页「平台专属入口」用）
 pub fn platform() -> String {
     std::env::consts::OS.to_string()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn kind_of(host: &str, user: &str) -> RemoteKind {
+        classify_remote(&EffectiveTarget {
+            hostname: host.into(),
+            user: user.into(),
+        })
+    }
+
+    /// 已知 Git 托管域名不依赖 User 也能识别
+    #[test]
+    fn known_git_hosts_are_classified() {
+        assert_eq!(kind_of("github.com", ""), RemoteKind::GitHosting);
+        assert_eq!(kind_of("gitee.com", "YimoLab"), RemoteKind::GitHosting);
+        assert_eq!(
+            kind_of("codehub.devcloud.cn-north-4.huaweicloud.com", "git"),
+            RemoteKind::GitHosting
+        );
+    }
+
+    /// 自建 GitLab / Gitea 没有固定域名，靠 HostName 特征识别
+    #[test]
+    fn self_hosted_git_services_are_classified() {
+        assert_eq!(
+            kind_of("gitlab.zyys.tech", "leijing"),
+            RemoteKind::GitHosting
+        );
+        assert_eq!(kind_of("git.example.com", "root"), RemoteKind::GitHosting);
+        assert_eq!(kind_of("192.168.1.10", "root"), RemoteKind::Shell);
+    }
+
+    /// Git 服务的欢迎语必须能覆盖非 0 退出码（CodeArts 为 128、GitHub 为 1）
+    #[test]
+    fn git_auth_markers_override_nonzero_exit() {
+        assert!(git_auth_succeeded(
+            "remote: Welcome to CodeArts Repo, a601e08238e4497a88450a0e217c4c77",
+            128
+        ));
+        assert!(git_auth_succeeded(
+            "Hi alice! You've successfully authenticated, but GitHub does not provide shell access.",
+            1
+        ));
+        assert!(git_auth_succeeded(
+            "Welcome to GitLab, @alice!",
+            0
+        ));
+    }
+
+    /// 认证失败时即使输出里带 password 等词也不能误判成功
+    #[test]
+    fn publickey_denied_is_not_success() {
+        assert!(!git_auth_succeeded(
+            "git@github.com: Permission denied (publickey).",
+            255
+        ));
+    }
+
+    /// 把 clone 地址里的 org/repo 当 User 是本次实际踩到的坑
+    #[test]
+    fn repository_path_in_user_is_detected() {
+        assert!(user_looks_like_path("ftms_dms_devops/DMSsrv-TCCN-Dev-leijing"));
+        assert!(user_looks_like_path("host:repo"));
+        assert!(!user_looks_like_path("git"));
+        assert!(!user_looks_like_path("leijing"));
+    }
+
+    /// 别名模式下解析出的 User / HostName 要用于平台判定
+    #[test]
+    fn classify_uses_effective_target() {
+        let t = EffectiveTarget {
+            hostname: "codehub.devcloud.cn-north-4.huaweicloud.com".into(),
+            user: "ftms_dms_devops/DMSsrv-TCCN-Dev-leijing".into(),
+        };
+        // 域名命中 CodeArts，User 虽然填错也仍按 Git 平台诊断
+        assert_eq!(classify_remote(&t), RemoteKind::GitHosting);
+        assert!(user_looks_like_path(&t.user));
+    }
 }
