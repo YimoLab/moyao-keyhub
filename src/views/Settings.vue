@@ -19,6 +19,7 @@ import AppModal from '../components/AppModal.vue'
 import PageSkeleton from '../components/PageSkeleton.vue'
 import BrandMark from '../components/BrandMark.vue'
 import { getVersion } from '@tauri-apps/api/app'
+import { relaunch } from '@tauri-apps/plugin-process'
 import { checkForUpdates, updateState } from '../lib/updater.js'
 import { useEnvStore } from '../lib/store.js'
 import * as api from '../lib/api.js'
@@ -84,9 +85,11 @@ async function patch(changes) {
   saving.value = true
   try {
     await env.savePrefs(changes)
+    return true
   } catch (e) {
     Object.assign(env.rawPrefs, before)
     toast(`保存失败：${e.message || e}`, 'danger')
+    return false
   } finally {
     saving.value = false
   }
@@ -120,10 +123,30 @@ function setTheme(next) {
 }
 
 /* ── 标题栏风格（窗口装饰在启动时应用，切换后需重启） ───────── */
-function setTitlebar(next) {
+async function setTitlebar(next) {
   if (next === p.value.titlebarStyle) return
-  patch({ titlebarStyle: next })
-  toast.push('标题栏风格将在重启应用后生效', 'info')
+  if (!(await patch({ titlebarStyle: next }))) return
+  confirmDialog.value = {
+    title: '标题栏风格已切换',
+    body: '新的标题栏风格需要重启应用后生效。是否立即重启？',
+    confirmText: '立即重启',
+    cancelText: '稍后',
+    danger: false,
+    onCancel() {
+      toast.push('标题栏风格将在下次启动时生效', 'info')
+    },
+    async run() {
+      if (!api.isBackendAvailable()) {
+        toast.push('浏览器预览模式下无法重启，请在桌面端生效', 'info')
+        return
+      }
+      try {
+        await relaunch()
+      } catch (e) {
+        toast.push(`重启失败：${e.message || e}`, 'danger')
+      }
+    },
+  }
 }
 
 /* ── 算法默认值 ─────────────────────────────────────────────── */
@@ -240,6 +263,12 @@ async function runConfirm() {
   if (d?.run) await d.run()
 }
 
+function cancelConfirm() {
+  const d = confirmDialog.value
+  confirmDialog.value = null
+  d?.onCancel?.()
+}
+
 onMounted(async () => {
   if (!env.prefs.loaded) await env.loadPrefs()
   syncDraft()
@@ -248,7 +277,7 @@ onMounted(async () => {
   try {
     appVersion.value = await getVersion()
   } catch {
-    appVersion.value = '0.2.5'
+    appVersion.value = '0.2.6'
   }
 })
 
@@ -685,7 +714,7 @@ const platformLabel = computed(() => {
       v-model="confirmVisible"
       :title="confirmDialog?.title || ''"
       :dismissable="false"
-      @close="confirmDialog = null"
+      @close="cancelConfirm"
     >
       <div v-if="confirmDialog" class="kh-row-top">
         <Icon
@@ -696,7 +725,9 @@ const platformLabel = computed(() => {
         <p class="anx-t-sm">{{ confirmDialog.body }}</p>
       </div>
       <template #footer>
-        <button class="anx-btn anx-btn--ghost" @click="confirmDialog = null">取消</button>
+        <button class="anx-btn anx-btn--ghost" @click="cancelConfirm">
+          {{ confirmDialog?.cancelText || '取消' }}
+        </button>
         <button
           v-if="confirmDialog"
           class="anx-btn"
