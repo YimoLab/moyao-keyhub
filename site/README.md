@@ -75,46 +75,74 @@ https://api.github.com/repos/YimoLab/moyao-keyhub/releases/latest
 4. 转成 WebP，输出 2240 与 1120 两档，放到 `assets/shots/`，文件名保持 `key-vault` / `generate` / `diagnostics` / `security`。
 5. 同步更新 `<img>` 的 `width` / `height` 与 `alt`。
 
-## 部署到 Cloudflare Pages
+## 部署到 Cloudflare
 
-`site/` 是纯静态输出，没有构建步骤。**不要使用仓库根目录的 `npm run build`**，那构建的是桌面端前端。
+`site/` 是纯静态输出，没有构建步骤。**不要在 Cloudflare 里使用 `npm run build`**，那构建的是桌面端前端。
 
-### 方式 A：Git 集成（推荐）
+Cloudflare 现在默认创建 **Worker**（Workers Static Assets）。仓库根的 `wrangler.jsonc` 已经把 `site/` 配成静态资产目录：
 
-1. Cloudflare Dashboard → **Workers & Pages** → **Create** → **Pages** → **Connect to Git**。
-2. 授权并选择 `YimoLab/moyao-keyhub`。
-3. 按下表填写：
+```jsonc
+{
+  "name": "keyhub-site",
+  "compatibility_date": "2026-11-24",
+  "assets": {
+    "directory": "./site",
+    "not_found_handling": "404-page"
+  }
+}
+```
 
-   | 配置项 | 值 |
-   |---|---|
-   | Project name | `keyhub-site`（决定 `<name>.pages.dev`） |
-   | Production branch | `main` |
-   | Framework preset | `None` |
-   | Build command | **留空** |
-   | Build output directory | `site` |
-   | Root directory | **留空** |
+Workers Static Assets 原生支持 `_headers` 与 `_redirects`，`not_found_handling: "404-page"` 会让不存在的路径返回 `site/404.html`。
 
-4. **Save and Deploy**。之后每次 push `main` 都会自动重新部署 `site/`。
-5. 自定义域名：项目 → **Custom domains** → **Set up a custom domain**。域名托管在 Cloudflare 时自动加记录；否则按提示添加 CNAME 指向 `<project>.pages.dev`。
+### 当前控制台（Worker + Git）
 
-> Cloudflare 检测到仓库根目录有 `package.json` 时，构建阶段仍可能执行一次根目录的依赖安装（不会运行 `npm run build`，因为 Build command 为空）。首次构建会慢一些。如果不想让它安装桌面端依赖，用方式 B 直接上传。
+截图里的字段这样填：
 
-### 方式 B：Wrangler 直接上传
+| 字段 | 值 |
+|---|---|
+| 项目名称 | `keyhub-site` |
+| 构建命令 | **清空**（删掉默认的 `npm run build`） |
+| 部署命令 | `npx wrangler deploy` |
+| 预览命令 | `npx wrangler preview`（保持默认） |
+
+点「部署」。之后每次 push `main` 会自动重新部署。自定义域名在项目 → **Settings** → **Domains & Routes** 中添加。
+
+注意：
+
+- 构建命令留空后，Cloudflare 可能仍会安装仓库根目录的依赖，但不会运行桌面端构建。
+- `npx wrangler deploy` 读取仓库根的 `wrangler.jsonc`；确认它已提交并推送。
+- `wrangler.jsonc` 的 `name` 必须和 Cloudflare 项目名一致，改名时同步修改。
+
+### 命令行直接部署
 
 ```bash
 npx wrangler login
-npx wrangler pages project create keyhub-site --production-branch main
-npx wrangler pages deploy site --project-name keyhub-site --branch main
+npx wrangler deploy
 ```
 
-后续更新只需重复最后一条。Wrangler 会在本地生成 `.wrangler/`，已加入 `.gitignore`。
+在仓库根执行，读取 `wrangler.jsonc`。本地会生成 `.wrangler/`，已加入 `.gitignore`。
+
+### 旧版 Pages 流程
+
+如果账户仍使用 Pages：
+
+| 配置项 | 值 |
+|---|---|
+| Project name | `keyhub-site` |
+| Production branch | `main` |
+| Framework preset | `None` |
+| Build command | **留空** |
+| Build output directory | `site` |
+| Root directory | **留空** |
+
+Pages 会自动应用 `_headers` 与 `_redirects`，并使用根目录的 `404.html`。
 
 ### 发布相关文件
 
 | 文件 | 作用 |
 |---|---|
 | `_headers` | 安全头与按路径分组的缓存策略 |
-| `404.html` | Cloudflare Pages 会自动作为自定义 404 |
+| `404.html` | Worker 由 `not_found_handling` 启用；Pages 会自动使用 |
 | `robots.txt` | 允许抓取；绑定域名后可补 sitemap |
 
 CSS / JS / 截图的文件名不带内容哈希，所以缓存策略设为 `must-revalidate`：浏览器每次用 ETag 验证，更新样式后能立即生效。字体文件名稳定，缓存 7 天。
@@ -127,7 +155,7 @@ CSS / JS / 截图的文件名不带内容哈希，所以缓存策略设为 `must
 2. 控制台无 CSP 报错；Network 中 `api.github.com/.../releases/latest` 返回 200；
 3. 页脚版本、安装包体积与 GitHub 最新 Release 一致；
 4. 任意不存在的路径（如 `/not-a-page`）显示自定义 404；
-5. 绑定域名后，把 `index.html` 的 `og:image` 改成绝对地址：`https://<domain>/assets/shots/key-vault.webp`；建议同时加一行 `<link rel="canonical" href="https://<domain>/">`，避免 `pages.dev` 与自定义域名重复收录；
+5. 绑定域名后，把 `index.html` 的 `og:image` 改成绝对地址：`https://<domain>/assets/shots/key-vault.webp`；建议同时加一行 `<link rel="canonical" href="https://<domain>/">`，避免默认域名（`*.workers.dev` / `*.pages.dev`）与自定义域名重复收录；
 6. 两个下载按钮都能下载到最新安装包。
 
 ### 说明
