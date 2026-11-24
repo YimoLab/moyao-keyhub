@@ -53,6 +53,9 @@ docs/
 *.bak
 *.local
 
+# Cloudflare Wrangler 本地状态
+.wrangler/
+
 # 调试时的临时输出（曾在本项目根目录与 src-tauri/ 下堆积 100+ 个）
 .*.txt
 .preview.err

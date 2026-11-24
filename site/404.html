@@ -1,0 +1,117 @@
+<!doctype html>
+<html lang="zh-CN" data-theme="light">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>页面不存在 · 墨钥 KeyHub</title>
+  <meta name="robots" content="noindex" />
+  <meta name="color-scheme" content="light dark" />
+  <meta name="theme-color" media="(prefers-color-scheme: light)" content="#FAFAFA" />
+  <meta name="theme-color" media="(prefers-color-scheme: dark)" content="#1A1A1A" />
+  <link rel="icon" href="/assets/favicon.svg" type="image/svg+xml" />
+  <link rel="preload" href="/design/fonts/albert-sans-latin.woff2" as="font" type="font/woff2" crossorigin />
+  <link rel="stylesheet" href="/design/fonts/fonts.css" />
+  <link rel="stylesheet" href="/design/css/tokens.css" />
+  <link rel="stylesheet" href="/design/css/brand.css" />
+  <link rel="stylesheet" href="/design/css/base.css" />
+  <link rel="stylesheet" href="/design/css/components.css" />
+  <link rel="stylesheet" href="/design/css/motion.css" />
+  <link rel="stylesheet" href="/assets/site.css" />
+  <script src="/assets/theme-init.js"></script>
+  <style>
+    .ks-404 {
+      min-height: 100dvh;
+      display: grid;
+      grid-template-rows: auto 1fr;
+      background: var(--paper);
+    }
+    .ks-404__top {
+      width: 100%;
+      max-width: var(--ks-max);
+      margin-inline: auto;
+      padding: 22px var(--ks-gutter);
+    }
+    .ks-404__main {
+      display: grid;
+      place-items: center;
+      padding: 40px var(--ks-gutter) 100px;
+    }
+    .ks-404__inner { max-width: 620px; text-align: center; }
+    .ks-404__code {
+      margin: 0 0 18px;
+      font-family: var(--font-mono);
+      font-size: 12px;
+      letter-spacing: .14em;
+      color: var(--muted-text);
+    }
+    .ks-404 h1 {
+      margin: 0;
+      font-size: clamp(34px, 6vw, 58px);
+      line-height: 1.14;
+      font-weight: 700;
+      letter-spacing: -.035em;
+      text-wrap: balance;
+    }
+    .ks-404__mark {
+      position: relative;
+      display: inline-block;
+      padding: 0 .03em;
+    }
+    .ks-404__mark::after {
+      content: "";
+      position: absolute;
+      left: 0;
+      right: 0;
+      bottom: .055em;
+      height: .1em;
+      border-radius: var(--r-pill);
+      background: var(--acid);
+    }
+    .ks-404 p.ks-404__desc {
+      margin: 20px auto 0;
+      max-width: 36em;
+      font-size: 15px;
+      line-height: 1.75;
+      color: var(--muted-text);
+      text-wrap: pretty;
+    }
+    .ks-404__actions {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      gap: 10px;
+      margin-top: 30px;
+    }
+    @media (max-width: 520px) {
+      .ks-404__actions { flex-direction: column; }
+      .ks-404__actions .anx-btn { width: 100%; }
+    }
+  </style>
+</head>
+<body class="ks-404">
+  <header class="ks-404__top">
+    <a class="ks-brand" href="/" aria-label="墨钥 KeyHub · 回到首页">
+      <svg class="ks-brand__mark" viewBox="0 0 512 512" aria-hidden="true">
+        <rect x="16" y="16" width="480" height="480" rx="120" fill="var(--ink)" />
+        <circle cx="236" cy="214" r="66" fill="var(--paper)" />
+        <path d="M236 280v98" stroke="var(--paper)" stroke-width="44" stroke-linecap="round" />
+        <path d="M236 326h52" stroke="var(--paper)" stroke-width="30" stroke-linecap="round" />
+        <circle cx="386" cy="386" r="24" fill="var(--acid)" />
+      </svg>
+      <span class="ks-brand__name">墨钥 <em>KeyHub</em></span>
+    </a>
+  </header>
+
+  <main class="ks-404__main">
+    <div class="ks-404__inner">
+      <p class="ks-404__code">404 / PAGE NOT FOUND</p>
+      <h1>这页不在<span class="ks-404__mark">钥匙串</span>上。</h1>
+      <p class="ks-404__desc">地址可能写错了，或者页面已经搬走。回到首页，或者直接下载 Windows 版。</p>
+      <div class="ks-404__actions">
+        <a class="anx-btn anx-btn--primary anx-btn--lg" href="/">回到首页</a>
+        <a class="anx-btn anx-btn--ghost anx-btn--lg" href="/#download">下载 Windows 版</a>
+      </div>
+    </div>
+  </main>
+</body>
+</html>

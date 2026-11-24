@@ -1,0 +1,620 @@
+<!doctype html>
+<html lang="zh-CN" data-theme="light">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>墨钥 KeyHub · SSH 密钥管理，不必再碰命令行</title>
+  <meta name="description" content="墨钥 KeyHub 是一款本地优先的 Windows SSH 密钥管理桌面程序：可视化生成密钥、编辑 SSH Config、修复权限、测试连通性。私钥始终只留在 ~/.ssh，不保存副本、不上传数据。" />
+  <meta name="color-scheme" content="light dark" />
+  <meta name="theme-color" media="(prefers-color-scheme: light)" content="#FAFAFA" />
+  <meta name="theme-color" media="(prefers-color-scheme: dark)" content="#1A1A1A" />
+
+  <link rel="icon" href="assets/favicon.svg" type="image/svg+xml" />
+  <link rel="preload" href="design/fonts/albert-sans-latin.woff2" as="font" type="font/woff2" crossorigin />
+
+  <meta property="og:type" content="website" />
+  <meta property="og:locale" content="zh_CN" />
+  <meta property="og:title" content="墨钥 KeyHub · SSH 密钥管理，不必再碰命令行" />
+  <meta property="og:description" content="把密钥生成、公钥部署、SSH Config 编辑、权限修复与连通诊断，收进一个 Windows 桌面窗口。私钥始终只留在 ~/.ssh。" />
+  <meta property="og:image" content="assets/shots/key-vault.webp" />
+  <meta name="twitter:card" content="summary_large_image" />
+
+  <link rel="stylesheet" href="design/fonts/fonts.css" />
+  <link rel="stylesheet" href="design/css/tokens.css" />
+  <link rel="stylesheet" href="design/css/brand.css" />
+  <link rel="stylesheet" href="design/css/base.css" />
+  <link rel="stylesheet" href="design/css/components.css" />
+  <link rel="stylesheet" href="design/css/motion.css" />
+  <link rel="stylesheet" href="assets/site.css" />
+  <script src="assets/theme-init.js"></script>
+
+  <script type="application/ld+json" id="kh-jsonld">
+  {
+    "@context": "https://schema.org",
+    "@type": "SoftwareApplication",
+    "name": "墨钥 KeyHub",
+    "alternateName": "KeyHub",
+    "applicationCategory": "DeveloperApplication",
+    "applicationSubCategory": "SSH key management",
+    "operatingSystem": "Windows 10, Windows 11",
+    "softwareVersion": "0.2.9",
+    "inLanguage": "zh-CN",
+    "description": "本地优先的 Windows SSH 密钥管理桌面程序：可视化生成密钥、编辑 SSH Config、修复权限、测试连通性。",
+    "downloadUrl": "https://github.com/YimoLab/moyao-keyhub/releases/download/v0.2.9/KeyHub_0.2.9_x64-setup.exe",
+    "codeRepository": "https://github.com/YimoLab/moyao-keyhub",
+    "author": { "@type": "Organization", "name": "YimoLab" }
+  }
+  </script>
+</head>
+<body>
+  <a class="ks-skip" href="#main">跳到正文</a>
+
+  <!-- 图标精灵：统一 24×24 描边，路径取自鉴枢设计系统 icons.ts -->
+  <svg width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false">
+    <defs>
+      <symbol id="i-key" viewBox="0 0 24 24"><circle cx="8" cy="12" r="3.6"/><path d="M11.6 12H21"/><path d="M18.2 12v3.1"/><path d="M15.2 12v2.3"/></symbol>
+      <symbol id="i-database" viewBox="0 0 24 24"><ellipse cx="12" cy="6.4" rx="8" ry="3.1"/><path d="M4 6.4v11.2c0 1.7 3.6 3.1 8 3.1s8-1.4 8-3.1V6.4"/><path d="M4 12c0 1.7 3.6 3.1 8 3.1s8-1.4 8-3.1"/></symbol>
+      <symbol id="i-file-text" viewBox="0 0 24 24"><path d="M13.6 3.5H7.5A2.5 2.5 0 0 0 5 6v12a2.5 2.5 0 0 0 2.5 2.5h9A2.5 2.5 0 0 0 19 18V8.9l-5.4-5.4Z"/><path d="M13.6 3.5v5.4H19"/><path d="M8.6 13h6.8M8.6 16.6h4.4"/></symbol>
+      <symbol id="i-monitor" viewBox="0 0 24 24"><rect x="2.8" y="4" width="18.4" height="12.6" rx="2.4"/><path d="M8.6 20.5h6.8"/><path d="M12 16.6v3.9"/></symbol>
+      <symbol id="i-lock" viewBox="0 0 24 24"><rect x="4.6" y="10.4" width="14.8" height="10.1" rx="2.4"/><path d="M8.1 10.4V7.9a3.9 3.9 0 0 1 7.8 0v2.5"/></symbol>
+      <symbol id="i-activity" viewBox="0 0 24 24"><path d="M3 12h3.8l2.6-6.6L14 18.6l2.6-6.6H21"/></symbol>
+      <symbol id="i-shield-check" viewBox="0 0 24 24"><path d="M12 3.2 5 6v5.6c0 4.3 2.9 7.6 7 9.2 4.1-1.6 7-4.9 7-9.2V6l-7-2.8Z"/><path d="m9.1 11.9 2 2 3.8-4"/></symbol>
+      <symbol id="i-check" viewBox="0 0 24 24"><path d="m5 12.6 4.5 4.5L19 7.6"/></symbol>
+      <symbol id="i-download" viewBox="0 0 24 24"><path d="M12 3.6v11.2"/><path d="m7.6 10.6 4.4 4.4 4.4-4.4"/><path d="M4.6 19.4h14.8"/></symbol>
+      <symbol id="i-arrow-right" viewBox="0 0 24 24"><path d="M4 12h16"/><path d="m14 6 6 6-6 6"/></symbol>
+      <symbol id="i-sun" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2.6v2.1M12 19.3v2.1M21.4 12h-2.1M4.7 12H2.6M18.6 5.4l-1.5 1.5M6.9 17.1l-1.5 1.5M18.6 18.6l-1.5-1.5M6.9 6.9 5.4 5.4"/></symbol>
+      <symbol id="i-moon" viewBox="0 0 24 24"><path d="M20.2 14.4A8.5 8.5 0 0 1 9.6 3.8a8.6 8.6 0 1 0 10.6 10.6Z"/></symbol>
+      <symbol id="i-ban" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.6"/><path d="m6.1 6.1 11.8 11.8"/></symbol>
+      <symbol id="i-external" viewBox="0 0 24 24"><path d="M14 4.5h5.5V10"/><path d="M19.5 4.5 12 12"/><path d="M18 14v4.6a2.2 2.2 0 0 1-2.2 2.2H5.5a2.2 2.2 0 0 1-2.2-2.2V8.2A2.2 2.2 0 0 1 5.5 6H10"/></symbol>
+    </defs>
+  </svg>
+
+  <header class="ks-nav" id="ks-nav">
+    <div class="ks-nav__in">
+      <a class="ks-brand" href="#top" aria-label="墨钥 KeyHub · 回到顶部">
+        <svg class="ks-brand__mark" viewBox="0 0 512 512" aria-hidden="true">
+          <rect x="16" y="16" width="480" height="480" rx="120" fill="var(--ink)" />
+          <circle cx="236" cy="214" r="66" fill="var(--paper)" />
+          <path d="M236 280v98" stroke="var(--paper)" stroke-width="44" stroke-linecap="round" />
+          <path d="M236 326h52" stroke="var(--paper)" stroke-width="30" stroke-linecap="round" />
+          <circle cx="386" cy="386" r="24" fill="var(--acid)" />
+        </svg>
+        <span class="ks-brand__name">墨钥 <em>KeyHub</em></span>
+      </a>
+
+      <nav class="ks-nav__links" aria-label="主导航">
+        <a href="#why">为什么</a>
+        <a href="#features">功能</a>
+        <a href="#tour">界面</a>
+        <a href="#security">安全</a>
+        <a href="#faq">问答</a>
+      </nav>
+
+      <div class="ks-nav__actions">
+        <button class="anx-btn anx-btn--quiet ks-theme-btn" id="theme-toggle" type="button" aria-label="切换到深色主题">
+          <svg class="ks-ic-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-sun" /></svg>
+          <svg class="ks-ic-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-moon" /></svg>
+        </button>
+        <a class="anx-btn anx-btn--primary anx-btn--sm" href="#download">下载</a>
+      </div>
+    </div>
+  </header>
+
+  <main id="main">
+    <!-- ══════ Hero ══════ -->
+    <section class="ks-hero" id="top">
+      <div class="ks-wrap">
+        <p class="ks-eyebrow">
+          <span class="ks-eyebrow__dot" aria-hidden="true"></span>
+          Windows 10 / 11 · 本地优先 · 零命令行
+        </p>
+
+        <h1 class="ks-hero__title">
+          SSH 密钥的每一步，<br />
+          都在一个<span class="ks-hero__mark">窗口</span>里完成。
+        </h1>
+
+        <p class="ks-hero__sub">
+          墨钥 KeyHub 把<strong>生成、部署、配置、修复、诊断</strong>收进一套可视化流程。
+          私钥始终只留在 <code>~/.ssh</code>，程序不保存副本，也不上传任何数据。
+        </p>
+
+        <div class="ks-hero__actions">
+          <a class="anx-btn anx-btn--primary anx-btn--lg" data-kh-download href="https://github.com/YimoLab/moyao-keyhub/releases/download/v0.2.9/KeyHub_0.2.9_x64-setup.exe">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-download" /></svg>
+            下载 Windows 版
+          </a>
+          <a class="anx-btn anx-btn--ghost anx-btn--lg" href="#features">
+            看看它能做什么
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-arrow-right" /></svg>
+          </a>
+        </div>
+
+        <p class="ks-hero__meta">
+          <span><code data-kh-version>v0.2.9</code> · 安装包 <span data-kh-size>2.4 MB</span></span>
+          <span>基于 Tauri 2 · 需要系统 OpenSSH</span>
+        </p>
+
+        <figure class="ks-hero__shot">
+          <div class="ks-shot">
+            <img
+              src="assets/shots/key-vault.webp"
+              srcset="assets/shots/key-vault-1120.webp 1120w, assets/shots/key-vault.webp 2240w"
+              sizes="(max-width: 1180px) calc(100vw - 40px), 1120px"
+              width="2240" height="1437"
+              fetchpriority="high" decoding="async"
+              alt="墨钥 KeyHub 的密钥库界面：侧栏导航、密钥总数统计，以及包含算法、SHA256 指纹、权限与口令状态的密钥列表。" />
+            <figcaption>密钥库 · 算法、指纹、权限与口令状态一屏看完</figcaption>
+          </div>
+        </figure>
+      </div>
+    </section>
+
+    <!-- ══════ 信任条 ══════ -->
+    <section class="ks-trust" aria-label="核心保证">
+      <div class="ks-wrap">
+        <div class="ks-trust__in">
+          <div class="ks-trust__item">
+            <span class="ks-trust__icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-key" /></svg></span>
+            <div><strong>私钥零副本</strong><span>不缓存、不写临时文件</span></div>
+          </div>
+          <div class="ks-trust__item">
+            <span class="ks-trust__icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-ban" /></svg></span>
+            <div><strong>默认零联网</strong><span>不发起请求、不含遥测</span></div>
+          </div>
+          <div class="ks-trust__item">
+            <span class="ks-trust__icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-database" /></svg></span>
+            <div><strong>写入前备份</strong><span>config 改动可一键回滚</span></div>
+          </div>
+          <div class="ks-trust__item">
+            <span class="ks-trust__icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-file-text" /></svg></span>
+            <div><strong>本地审计</strong><span>敏感操作逐条留痕</span></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ══════ 为什么 ══════ -->
+    <section class="ks-sec" id="why">
+      <div class="ks-wrap">
+        <div class="ks-sec__head ks-reveal">
+          <p class="ks-kicker">01 / 为什么</p>
+          <h2 class="ks-h2">同样的六步，<br />一种更少出错的方式。</h2>
+          <p class="ks-lead">
+            SSH 密钥本身不复杂，复杂的是记忆、上下文切换和那些不解释原因的报错。
+            墨钥把这些步骤变成表单、校验和可回滚的动作，命令仍然由系统原生 OpenSSH 执行。
+          </p>
+        </div>
+
+        <div class="ks-compare">
+          <div class="ks-term ks-reveal" aria-label="传统命令行流程示例">
+            <div class="ks-term__bar">
+              <span class="ks-term__dots" aria-hidden="true"><i></i><i></i><i></i></span>
+              <span>终端</span>
+              <span>6 条命令</span>
+            </div>
+            <pre><code><span class="p">$</span> ssh-keygen -t ed25519 -C "you@example.com"
+<span class="p">$</span> cat ~/.ssh/id_ed25519.pub
+<span class="c">  # 复制公钥，去浏览器粘到 GitHub / GitLab / Gitee</span>
+<span class="p">$</span> vim ~/.ssh/config
+<span class="c">  # 缩进、端口、IdentityFile，一个字符都不能错</span>
+<span class="p">$</span> chmod 700 ~/.ssh &amp;&amp; chmod 600 ~/.ssh/id_*
+<span class="p">$</span> ssh -T git@github.com
+<span class="e">  Permissions are too open.</span>
+<span class="c">  # 搜 20 分钟，再试一次</span><span class="ks-term__cursor" aria-hidden="true"></span></code></pre>
+            <div class="ks-term__foot">
+              <span>3 次上下文切换</span><i aria-hidden="true"></i><span>1 个没解释的报错</span>
+            </div>
+          </div>
+
+          <ol class="ks-mini ks-reveal" aria-label="使用墨钥的四步">
+            <li class="ks-mini__item">
+              <span class="ks-mini__n">01</span>
+              <div><h3>环境自检</h3><p>确认 ssh、Git 与 <code>~/.ssh</code> 权限，缺什么就补什么。</p></div>
+            </li>
+            <li class="ks-mini__item">
+              <span class="ks-mini__n">02</span>
+              <div><h3>生成密钥</h3><p>选算法、写注释、设置口令，一次填完。</p></div>
+            </li>
+            <li class="ks-mini__item">
+              <span class="ks-mini__n">03</span>
+              <div><h3>部署公钥</h3><p>复制公钥，按内置指引粘贴到代码平台。</p></div>
+            </li>
+            <li class="ks-mini__item">
+              <span class="ks-mini__n">04</span>
+              <div><h3>写入配置</h3><p>表单编辑 Host，保存前校验，写入前备份。</p></div>
+            </li>
+            <li class="ks-mini__foot">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-check" /></svg>
+              每一步都有对应的界面位置，不需要背命令
+            </li>
+          </ol>
+        </div>
+      </div>
+    </section>
+
+    <!-- ══════ 功能 ══════ -->
+    <section class="ks-sec" id="features">
+      <div class="ks-wrap">
+        <div class="ks-sec__head ks-reveal">
+          <p class="ks-kicker">02 / 功能</p>
+          <h2 class="ks-h2">从环境准备到握手成功，<br />中间不留空白。</h2>
+          <p class="ks-lead">
+            六个模块覆盖密钥的完整生命周期。所有能力都调用系统原生 OpenSSH，
+            不使用第三方 SSH 实现。
+          </p>
+        </div>
+
+        <div class="ks-fgrid">
+          <article class="ks-fcard ks-reveal">
+            <span class="ks-fcard__icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-monitor" /></svg></span>
+            <h3>环境自检</h3>
+            <p>启动先确认 ssh、ssh-keygen、ssh-add 与 Git 是否就绪，检查 ~/.ssh 目录与敏感文件权限。Windows 支持一键启用系统 OpenSSH 组件。</p>
+            <span class="ks-fcard__tag">只读检测 · 分平台引导</span>
+          </article>
+
+          <article class="ks-fcard ks-reveal">
+            <span class="ks-fcard__icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-key" /></svg></span>
+            <h3>密钥库</h3>
+            <p>扫描算法、位数、SHA256 指纹、注释、创建时间与口令状态。支持 ED25519 与 RSA 2048 / 3072 / 4096，公钥一键复制。</p>
+            <span class="ks-fcard__tag">生成 · 导入 · 轮换</span>
+          </article>
+
+          <article class="ks-fcard ks-reveal">
+            <span class="ks-fcard__icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-file-text" /></svg></span>
+            <h3>SSH Config</h3>
+            <p>Form / Raw 双模式。只重写墨钥托管的注释块，块外的注释、缩进、ProxyJump 与 Match 原样保留；保存前指出具体的 Host 与改法。</p>
+            <span class="ks-fcard__tag">保存前校验 · 自动备份</span>
+          </article>
+
+          <article class="ks-fcard ks-reveal">
+            <span class="ks-fcard__icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-lock" /></svg></span>
+            <h3>权限修复</h3>
+            <p>体检目录、私钥、config、known_hosts 与 authorized_keys。不合规项优先展示，可单项或一键全部修复。</p>
+            <span class="ks-fcard__tag">Windows icacls · Unix chmod</span>
+          </article>
+
+          <article class="ks-fcard ks-reveal">
+            <span class="ks-fcard__icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-activity" /></svg></span>
+            <h3>连通诊断</h3>
+            <p>执行一次真实 SSH 握手，实时输出、耗时与退出码。覆盖超时、DNS 失败、公钥被拒、agent 未运行、指纹变更等十类故障。</p>
+            <span class="ks-fcard__tag">先预览命令 · 失败给下一步</span>
+          </article>
+
+          <article class="ks-fcard ks-reveal">
+            <span class="ks-fcard__icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-shield-check" /></svg></span>
+            <h3>安全中心</h3>
+            <p>0–100 安全评分，按权限、口令、agent、备份四个维度给出改进项。管理 ssh-agent、加密备份与审计日志。</p>
+            <span class="ks-fcard__tag">评分 · 备份 · 审计</span>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <!-- ══════ 界面 ══════ -->
+    <section class="ks-sec" id="tour">
+      <div class="ks-wrap">
+        <div class="ks-sec__head ks-reveal">
+          <p class="ks-kicker">03 / 界面</p>
+          <h2 class="ks-h2">真实界面，不是渲染图。</h2>
+          <p class="ks-lead">
+            下面三张图来自正在运行的墨钥 KeyHub，演示数据只用于展示。
+          </p>
+        </div>
+
+        <div class="ks-rows">
+          <div class="ks-row">
+            <div class="ks-row__text ks-reveal">
+              <p class="ks-kicker">生成密钥</p>
+              <h2>生成密钥，<br />只需要一个名字。</h2>
+              <p>
+                选择 ED25519 或 RSA，填写注释与可选口令。私钥直接写入 <code>~/.ssh</code>，程序不另存副本；
+                带口令的密钥也不会被自动塞进 ssh-agent 的命令行。
+              </p>
+              <ul class="ks-checks">
+                <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-check" /></svg><span>默认 ED25519，老旧服务器可选 RSA 2048–4096</span></li>
+                <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-check" /></svg><span>口令保护可选，留空表示不加密私钥</span></li>
+                <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-check" /></svg><span>生成前直接展示将写入的 ~/.ssh 路径</span></li>
+              </ul>
+            </div>
+            <figure class="ks-row__media ks-reveal">
+              <div class="ks-shot">
+                <img src="assets/shots/generate.webp"
+                  srcset="assets/shots/generate-1120.webp 1120w, assets/shots/generate.webp 2240w"
+                  sizes="(max-width: 1024px) calc(100vw - 40px), 700px"
+                  width="2240" height="1437" loading="lazy" decoding="async"
+                  alt="生成 SSH 密钥弹窗：ED25519 与 RSA 算法选择、文件名、注释与可选口令保护。" />
+                <figcaption>生成 SSH 密钥 · 注释会附加在公钥末尾</figcaption>
+              </div>
+            </figure>
+          </div>
+
+          <div class="ks-row ks-row--rev">
+            <div class="ks-row__text ks-reveal">
+              <p class="ks-kicker">连通诊断</p>
+              <h2>失败不是终点，<br />是下一条修复建议。</h2>
+              <p>
+                按 Host 别名或直连地址执行一次真实握手。执行前先展示完整 ssh 命令，不联网预览；
+                失败时逐条说明原因和下一步，而不是把一整段 verbose 输出丢给你。
+              </p>
+              <ul class="ks-checks">
+                <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-check" /></svg><span>实时终端输出、耗时与退出码</span></li>
+                <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-check" /></svg><span>覆盖超时、拒绝连接、DNS、公钥被拒等十类故障</span></li>
+                <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-check" /></svg><span>只有你点下「开始测试」才会发起网络连接</span></li>
+              </ul>
+            </div>
+            <figure class="ks-row__media ks-reveal">
+              <div class="ks-shot">
+                <img src="assets/shots/diagnostics.webp"
+                  srcset="assets/shots/diagnostics-1120.webp 1120w, assets/shots/diagnostics.webp 2240w"
+                  sizes="(max-width: 1024px) calc(100vw - 40px), 700px"
+                  width="2240" height="1437" loading="lazy" decoding="async"
+                  alt="连接测试界面：可选的 config 别名、目标地址、关联私钥，以及执行前展示的完整 ssh 命令。" />
+                <figcaption>连接测试 · 执行前先看清要跑的命令</figcaption>
+              </div>
+            </figure>
+          </div>
+
+          <div class="ks-row">
+            <div class="ks-row__text ks-reveal">
+              <p class="ks-kicker">安全中心</p>
+              <h2>权限、口令、agent 与备份，<br />放在一页。</h2>
+              <p>
+                0–100 安全评分，按四个维度列出可执行的改进项。读不到数据时明确显示「无法评估」，
+                不会把未知折叠成 0 分或「合规」。
+              </p>
+              <ul class="ks-checks">
+                <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-check" /></svg><span>ssh-agent 启停、开机自启、密钥装载与移除</span></li>
+                <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-check" /></svg><span>AES-256-GCM + Argon2id 加密备份，可检视、恢复、删除</span></li>
+                <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-check" /></svg><span>JSONL 审计日志，按类别筛选、导出 CSV、按保留期清理</span></li>
+              </ul>
+            </div>
+            <figure class="ks-row__media ks-reveal">
+              <div class="ks-shot">
+                <img src="assets/shots/security.webp"
+                  srcset="assets/shots/security-1120.webp 1120w, assets/shots/security.webp 2240w"
+                  sizes="(max-width: 1024px) calc(100vw - 40px), 700px"
+                  width="2240" height="1437" loading="lazy" decoding="async"
+                  alt="安全中心界面：80 分安全评分，权限、口令、Agent、备份四个维度，以及目录权限、密钥权限、口令覆盖等体检项。" />
+                <figcaption>安全中心 · 评分只反映当前可读取的数据</figcaption>
+              </div>
+            </figure>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ══════ 安全 ══════ -->
+    <section class="ks-dark" id="security" data-theme="dark">
+      <div class="ks-sec">
+        <div class="ks-wrap">
+          <div class="ks-sec__head ks-reveal">
+            <p class="ks-kicker">04 / 安全</p>
+            <h2 class="ks-h2">密钥不出 ~/.ssh，<br />数据不出这台机器。</h2>
+            <p class="ks-lead">
+              墨钥不托管你的私钥，只操作 <code>~/.ssh</code> 里已有的文件。
+              敏感操作要确认，写入之前有备份，失败就如实显示失败。
+            </p>
+          </div>
+
+          <div class="ks-secure__grid">
+            <div class="ks-secure__item ks-reveal">
+              <span class="ks-secure__n">01</span>
+              <h3>私钥零副本</h3>
+              <p>不缓存私钥内容，不写临时文件。程序不在自己的目录里另存一份密钥库。</p>
+            </div>
+            <div class="ks-secure__item ks-reveal">
+              <span class="ks-secure__n">02</span>
+              <h3>口令不落命令行</h3>
+              <p>带口令的私钥拒绝自动加入 ssh-add，避免口令作为参数被其它进程读到。</p>
+            </div>
+            <div class="ks-secure__item ks-reveal">
+              <span class="ks-secure__n">03</span>
+              <h3>路径穿越防御</h3>
+              <p>前端只传文件名，绝对路径全部在 Rust 侧计算；拒绝以 <code>.</code> 开头的文件名与 <code>..</code>。</p>
+            </div>
+            <div class="ks-secure__item ks-reveal">
+              <span class="ks-secure__n">04</span>
+              <h3>原子写入</h3>
+              <p>配置先写 <code>.tmp</code> 再 rename，避免留下半截文件或写坏原有配置。</p>
+            </div>
+            <div class="ks-secure__item ks-reveal">
+              <span class="ks-secure__n">05</span>
+              <h3>失败不伪装</h3>
+              <p>读不到数据就显示「未知 / 无法评估」，绝不渲染成 0、false 或「合规」。</p>
+            </div>
+            <div class="ks-secure__item ks-reveal">
+              <span class="ks-secure__n">06</span>
+              <h3>加密备份</h3>
+              <p>AES-256-GCM 加密、Argon2id 派生密钥，备份文件为 <code>.khbak</code>。</p>
+            </div>
+          </div>
+
+          <div class="ks-secure__note ks-reveal">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-shield-check" /></svg>
+            <span><strong>默认不发起任何网络请求，也不含遥测。</strong>唯一的可选联网是更新检查（默认关闭，开启后也只读取 GitHub 的版本文件），以及你在连接测试中主动触发的 SSH 握手。</span>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ══════ 上手 ══════ -->
+    <section class="ks-sec" id="flow">
+      <div class="ks-wrap">
+        <div class="ks-sec__head ks-reveal">
+          <p class="ks-kicker">05 / 上手</p>
+          <h2 class="ks-h2">新机器，五步走完。</h2>
+        </div>
+
+        <div class="ks-flow">
+          <div class="ks-flow__item ks-reveal">
+            <span class="ks-flow__n">01</span>
+            <h3>环境自检</h3>
+            <p>确认 OpenSSH 与 Git 可用，检查 ~/.ssh 权限。</p>
+          </div>
+          <div class="ks-flow__item ks-reveal">
+            <span class="ks-flow__n">02</span>
+            <h3>生成密钥</h3>
+            <p>选算法，写注释，按需设置口令。</p>
+          </div>
+          <div class="ks-flow__item ks-reveal">
+            <span class="ks-flow__n">03</span>
+            <h3>部署公钥</h3>
+            <p>按内置指引，把公钥粘贴到代码平台。</p>
+          </div>
+          <div class="ks-flow__item ks-reveal">
+            <span class="ks-flow__n">04</span>
+            <h3>写入配置</h3>
+            <p>表单编辑 Host，保存前校验，写入前备份。</p>
+          </div>
+          <div class="ks-flow__item ks-reveal">
+            <span class="ks-flow__n">05</span>
+            <h3>握手验证</h3>
+            <p>执行真实连接，失败就看诊断建议。</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ══════ 下载 ══════ -->
+    <section class="ks-sec" id="download">
+      <div class="ks-wrap">
+        <div class="ks-dl">
+          <svg class="ks-dl__mark" viewBox="0 0 512 512" aria-hidden="true">
+            <circle cx="236" cy="214" r="66" fill="none" stroke="currentColor" stroke-width="44" />
+            <path d="M236 280v98" stroke="currentColor" stroke-width="44" stroke-linecap="round" />
+            <path d="M236 326h52" stroke="currentColor" stroke-width="30" stroke-linecap="round" />
+            <circle cx="386" cy="386" r="24" fill="currentColor" />
+          </svg>
+
+          <div class="ks-dl__body">
+            <div class="ks-dl__text">
+              <p class="ks-kicker">06 / 下载</p>
+              <h2>从 <span data-kh-size>2.4 MB</span> 开始。</h2>
+              <p>Windows 10 / 11 x64 安装包，按当前用户安装。安装包经 minisign 签名校验，自动更新默认关闭。</p>
+            </div>
+            <div class="ks-dl__actions">
+              <a class="ks-dl__btn ks-dl__btn--primary" data-kh-download href="https://github.com/YimoLab/moyao-keyhub/releases/download/v0.2.9/KeyHub_0.2.9_x64-setup.exe">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-download" /></svg>
+                下载安装包
+              </a>
+              <a class="ks-dl__btn ks-dl__btn--ghost" href="https://github.com/YimoLab/moyao-keyhub/releases" target="_blank" rel="noopener noreferrer">
+                所有版本
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-external" /></svg>
+              </a>
+            </div>
+          </div>
+
+          <div class="ks-dl__meta">
+            <span><span data-kh-version>v0.2.9</span> · Windows x64 · NSIS</span>
+            <span>需要系统 OpenSSH · <a href="https://github.com/YimoLab/moyao-keyhub" target="_blank" rel="noopener noreferrer">源码仓库</a></span>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ══════ FAQ ══════ -->
+    <section class="ks-sec" id="faq">
+      <div class="ks-wrap">
+        <div class="ks-sec__head ks-sec__head--center ks-reveal">
+          <p class="ks-kicker">07 / 问答</p>
+          <h2 class="ks-h2">你可能想知道的事。</h2>
+        </div>
+
+        <div class="ks-faq ks-reveal">
+          <details class="ks-faq__item">
+            <summary>会不会把我的密钥上传到网上？<span class="ks-faq__sign" aria-hidden="true"></span></summary>
+            <div class="ks-faq__body">
+              <p>不会。私钥只存在于 <code>~/.ssh</code>，程序不保存副本、不写临时文件。默认零网络请求，也不含遥测。</p>
+              <p>唯一的可选联网是更新检查——默认关闭，开启后也只读取 GitHub 的版本文件；另一个是你在连接测试中主动触发的 SSH 握手。</p>
+            </div>
+          </details>
+
+          <details class="ks-faq__item">
+            <summary>已经有 ~/.ssh 和 config，会被整份覆盖吗？<span class="ks-faq__sign" aria-hidden="true"></span></summary>
+            <div class="ks-faq__body">
+              <p>不会。墨钥只重写 <code># ─── KeyHub managed block begin/end ───</code> 之间的内容，块外的注释、缩进、ProxyJump 与 Match 原样保留。</p>
+              <p>每次写入前都会生成备份，保存后可一键回滚。想退出管理，手动删掉这对注释之间的内容即可。</p>
+            </div>
+          </details>
+
+          <details class="ks-faq__item">
+            <summary>为什么安装包只有 2.4 MB？<span class="ks-faq__sign" aria-hidden="true"></span></summary>
+            <div class="ks-faq__body">
+              <p>基于 Tauri 2：Rust 后端 + 系统 WebView，不像 Electron 那样打包一整份 Chromium。安装后也不需要常驻后台服务。</p>
+            </div>
+          </details>
+
+          <details class="ks-faq__item">
+            <summary>需要管理员权限吗？<span class="ks-faq__sign" aria-hidden="true"></span></summary>
+            <div class="ks-faq__body">
+              <p>按当前用户安装（currentUser）。Windows 权限修复使用 <code>icacls</code>，只调整当前用户对 <code>~/.ssh</code> 的 ACL，不需要改动其它账户。</p>
+            </div>
+          </details>
+
+          <details class="ks-faq__item">
+            <summary>支持 macOS 和 Linux 吗？<span class="ks-faq__sign" aria-hidden="true"></span></summary>
+            <div class="ks-faq__body">
+              <p>代码与打包配置已覆盖三端，权限、agent 与子进程都有分平台实现。但当前只在 Windows + GNU 工具链下完成完整构建与安装验证，macOS / Linux 尚未实机回归。</p>
+              <p>所以官网目前只提供 Windows x64 安装包。</p>
+            </div>
+          </details>
+
+          <details class="ks-faq__item">
+            <summary>更新是怎么做的？<span class="ks-faq__sign" aria-hidden="true"></span></summary>
+            <div class="ks-faq__body">
+              <p>客户端通过 Tauri updater 读取 <code>latest.json</code>，安装包必须通过 minisign 签名校验才会安装。自动检查默认关闭，可在设置 → 应用更新中开启。</p>
+            </div>
+          </details>
+
+          <details class="ks-faq__item">
+            <summary>卸载后密钥还在吗？<span class="ks-faq__sign" aria-hidden="true"></span></summary>
+            <div class="ks-faq__body">
+              <p>在。程序只读写 <code>~/.ssh</code> 与自己的应用数据目录；卸载不会删除 <code>~/.ssh</code> 中的密钥与配置。</p>
+            </div>
+          </details>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer class="ks-foot">
+    <div class="ks-wrap">
+      <div class="ks-foot__top">
+        <div class="ks-foot__brand">
+          <svg viewBox="0 0 512 512" aria-hidden="true">
+            <rect x="16" y="16" width="480" height="480" rx="120" fill="var(--ink)" />
+            <circle cx="236" cy="214" r="66" fill="var(--paper)" />
+            <path d="M236 280v98" stroke="var(--paper)" stroke-width="44" stroke-linecap="round" />
+            <path d="M236 326h52" stroke="var(--paper)" stroke-width="30" stroke-linecap="round" />
+            <circle cx="386" cy="386" r="24" fill="var(--acid)" />
+          </svg>
+          <div>
+            <strong>墨钥 KeyHub</strong>
+            <span>本地优先的 SSH 密钥管理桌面程序</span>
+          </div>
+        </div>
+
+        <nav class="ks-foot__links" aria-label="页脚链接">
+          <a href="https://github.com/YimoLab/moyao-keyhub" target="_blank" rel="noopener noreferrer">源码仓库</a>
+          <a href="https://github.com/YimoLab/moyao-keyhub/releases" target="_blank" rel="noopener noreferrer">所有版本</a>
+          <a href="https://github.com/YimoLab/moyao-keyhub/issues" target="_blank" rel="noopener noreferrer">问题反馈</a>
+          <a href="#top">回到顶部</a>
+        </nav>
+      </div>
+
+      <div class="ks-foot__bottom">
+        <span>© <span id="year">2026</span> YimoLab</span>
+        <i aria-hidden="true"></i>
+        <span data-kh-version>v0.2.9</span>
+        <i aria-hidden="true"></i>
+        <span>界面基于鉴枢设计系统 AuthNexus Design</span>
+        <i aria-hidden="true"></i>
+        <span>Tauri 2 · Vue 3 · Rust</span>
+      </div>
+    </div>
+  </footer>
+
+  <script src="assets/site.js"></script>
+</body>
+</html>

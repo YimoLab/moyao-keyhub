@@ -273,6 +273,7 @@ KeyHub/
 │   ├── dom_check.mjs            UI 回归：断言无弹窗遮罩常驻
 │   ├── interact_check.mjs       UI 回归：弹窗开/关闭环
 │   └── gen_icons.py             应用图标生成器
+├── site/                        官网（静态单页，零构建）
 ├── src/
 │   ├── main.js                  入口 + 路由表 + 样式引入
 │   ├── App.vue                  应用外壳（玻璃侧栏 / 顶栏 / 主区 / 浮层宿主）
@@ -324,6 +325,17 @@ KeyHub/
 - 升级时对照上游 `CHANGELOG.md` 与 `contracts/`，不要只同步部分文件。
 
 </details>
+
+## 官网
+
+`site/` 是产品官网的静态单页，介绍程序作用、功能与安全设计，零构建、无框架运行时：
+
+```bash
+python -m http.server 8137 --directory site
+# 打开 http://127.0.0.1:8137/
+```
+
+官网与桌面端共用鉴枢设计系统资产，截图取自实际运行的应用；版本号、安装包体积与下载链接会从 GitHub 最新 Release 自动同步。部署到 Cloudflare Pages 时构建命令留空、输出目录填 `site`；完整步骤与发布检查见 `site/README.md`。
 
 ## 三端支持
 

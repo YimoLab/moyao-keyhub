@@ -1,0 +1,770 @@
+/* ==========================================================================
+   AuthNexus Design · base.css — L2 基础样式
+   --------------------------------------------------------------------------
+   来源：authnexus-design v0.1.0（三平台地址见仓库 README）
+   摘离自：鉴枢 AuthNexus app/src/styles/app.css（§od-layout · §2-3 · §5-15，
+          另含 §19 时间线 · §20c 带动作输入框/密码强度/标识着色 · §26 表格弱化行 ·
+          §36.2 权限芯片 · §21 的通用响应式与打印）
+   说明：元素与基础组件层（重置 / 排版刻度 / 通用块 / 按钮 / 表单 / 表格 / 标签 /
+         头像 / 提示条 / 代码 / 统计 / 标签页 / 空状态 / 骨架 / 时间线）。
+         浮层与交互组件的配方见 components.css；动效见 motion.css。
+   ========================================================================== */
+
+/* OD-LAYOUT-PRIMITIVES v1 — structure only: display, flex/grid, overflow, wrapping, ratio.
+   Put this @layer first; product CSS outside the layer always wins. */
+@layer od-layout {
+  :where(.od-stack,.od-row,.od-row-top,.od-cluster,.od-grid,.od-field,.od-stat,.od-cell,.od-tile) > :where(*) { min-width: 0; }
+
+  /* containers */
+  .od-stack   { display: flex; flex-direction: column; gap: var(--od-gap, 8px); }
+  .od-row     { display: flex; align-items: center; gap: var(--od-gap, 8px); }
+  .od-row-top { display: flex; align-items: flex-start; gap: var(--od-gap, 8px); }
+  .od-cluster { display: flex; flex-wrap: wrap; align-items: center; gap: var(--od-gap, 8px); }
+  .od-fill    { flex: 1 1 0; min-width: 0; }
+  .od-fixed   { flex: none; }
+  .od-grid    { display: grid; gap: var(--od-gap, 12px); grid-template-columns: repeat(var(--od-cols, 3), minmax(0, 1fr)); }
+
+  /* stacked information: each piece is its own line — never sibling inline spans */
+  .od-stat, .od-field, .od-cell { display: grid; gap: var(--od-gap, 2px); }
+  :where(.od-stat,.od-field,.od-cell) > :where(*) { display: block; }
+  .od-tile { display: grid; grid-template-rows: auto 1fr; }
+  :where(.od-tile) > :where(*) { display: block; }
+
+  /* media keeps its intrinsic ratio by default */
+  .od-media { display: block; width: 100%; height: auto; aspect-ratio: var(--od-ratio, auto); }
+  .od-media-cover { object-fit: cover; }
+
+  /* data text only — authored copy is rewritten to its budget instead */
+  .od-truncate { display: block; max-width: 100%; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+  .od-clamp-2, .od-clamp-3 { display: -webkit-box; -webkit-box-orient: vertical; overflow: hidden; overflow-wrap: anywhere; }
+  .od-clamp-2 { -webkit-line-clamp: 2; }
+  .od-clamp-3 { -webkit-line-clamp: 3; }
+  .od-lines-2 { min-height: calc(2 * 1.4em); }
+  .od-nowrap  { white-space: nowrap; }
+  .od-keep    { word-break: keep-all; overflow-wrap: anywhere; }
+
+  /* screen skeleton (optional) */
+  .od-screen { display: grid; grid-template-rows: auto minmax(0, 1fr) auto; height: 100%; }
+  .od-scroll { overflow-y: auto; overscroll-behavior: contain; min-height: 0; }
+
+  /* horizontal rail */
+  .od-rail { display: flex; gap: var(--od-gap, 8px); overflow-x: auto; scroll-snap-type: x proximity; scrollbar-width: none;
+             padding-inline: var(--od-rail-pad, 16px); scroll-padding-inline: var(--od-rail-pad, 16px); }
+  .od-rail::-webkit-scrollbar { display: none; }
+  :where(.od-rail) > :where(*) { flex: none; scroll-snap-align: start; }
+  :where(.od-rail) > :where(:last-child) { margin-inline-end: var(--od-rail-pad, 16px); }
+
+  .od-spacer { flex: none; visibility: hidden; pointer-events: none; }
+  .od-touch  { min-width: 44px; min-height: 44px; }
+}
+/* /OD-LAYOUT-PRIMITIVES v1 */
+
+/* --------------------------------------------------------------------------
+   2. 基础
+   -------------------------------------------------------------------------- */
+
+*, *::before, *::after { box-sizing: border-box; }
+
+html { -webkit-text-size-adjust: 100%; }
+
+body {
+  margin: 0;
+  min-height: 100dvh;
+  background: var(--page);
+  color: var(--ink);
+  font-family: var(--font-sans);
+  font-size: 16px;
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+h1, h2, h3, h4, p, figure { margin: 0; }
+ul, ol { margin: 0; padding: 0; list-style: none; }
+
+a { color: var(--link-text); text-decoration: none; }
+a:hover { text-decoration: underline; text-underline-offset: 3px; }
+
+button, input, select, textarea { font: inherit; color: inherit; }
+
+svg { flex: none; }
+
+code, kbd, samp, pre { font-family: var(--font-mono); }
+
+:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+}
+:focus:not(:focus-visible) { outline: none; }
+
+::selection { background: var(--acid); color: var(--on-acid); }
+
+/* hidden 属性必须胜过组件自身的 display，否则筛选、折叠与条件字段会失效 */
+[hidden] { display: none !important; }
+
+.anx-skip-link {
+  position: absolute; left: -9999px; top: 0; z-index: 200;
+  padding: 12px 20px; background: var(--ink); color: var(--on-dark);
+  border-radius: 0 0 var(--r) 0;
+  font-size: 14px; font-weight: 600;
+}
+.anx-skip-link:focus { left: 0; }
+
+.anx-visually-hidden {
+  position: absolute !important; width: 1px; height: 1px; padding: 0; margin: -1px;
+  overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0;
+}
+
+/* 排版刻度 12 / 13 / 14 / 16 / 18 / 20 / 24 / 28 / 32 */
+.anx-t-display { font-size: 32px; line-height: 1.15; font-weight: 700; letter-spacing: -.03em; }
+.anx-t-h1      { font-size: 28px; line-height: 1.2;  font-weight: 700; letter-spacing: -.028em; }
+.anx-t-h2      { font-size: 20px; line-height: 1.3;  font-weight: 600; letter-spacing: -.018em; }
+.anx-t-h3      { font-size: 16px; line-height: 1.4;  font-weight: 600; letter-spacing: -.008em; }
+.anx-t-body    { font-size: 16px; line-height: 1.6; }
+.anx-t-sm      { font-size: 14px; line-height: 1.55; }
+.anx-t-xs      { font-size: 13px; line-height: 1.5; }
+.anx-t-mono    { font-family: var(--font-mono); font-size: 13px; line-height: 1.55; }
+
+.anx-t-muted  { color: var(--muted-text); }
+.anx-t-faint  { color: var(--muted-text); }
+.anx-t-strong { font-weight: 600; }
+.anx-t-center { text-align: center; }
+
+.anx-measure { max-width: 72ch; }
+.anx-measure-sm { max-width: 56ch; }
+
+
+/* --------------------------------------------------------------------------
+   3. 启动与无脚本
+   -------------------------------------------------------------------------- */
+
+.anx-boot { min-height: 100dvh; display: grid; place-content: center; justify-items: center; gap: 16px; }
+.anx-boot__mark { color: var(--ink); }
+.anx-boot__text { color: var(--muted-text); font-size: 14px; }
+
+.anx-noscript {
+  max-width: 560px; margin: 80px auto; padding: 32px;
+  background: var(--surface); border: 1px solid var(--border); border-radius: var(--r);
+}
+.anx-noscript h1 { font-size: 24px; margin-bottom: 8px; letter-spacing: -.02em; }
+.anx-noscript p { color: var(--muted-text); font-size: 15px; }
+
+
+/* --------------------------------------------------------------------------
+   5. 通用块
+   -------------------------------------------------------------------------- */
+
+.anx-page-head { display: flex; align-items: flex-end; gap: 24px; margin-bottom: 32px; }
+.anx-page-head__text { min-width: 0; }
+.anx-page-head__actions { margin-left: auto; display: flex; align-items: center; gap: 8px; flex: none; }
+.anx-page-head__desc { color: var(--muted-text); font-size: 15px; margin-top: 8px; max-width: 76ch; line-height: 1.6; }
+
+.anx-panel {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--r);
+}
+.anx-panel__head {
+  display: flex; align-items: center; gap: 16px;
+  padding: 20px 24px; border-bottom: 1px solid var(--border);
+}
+/* 标题与副标题同行（Vue 实现补充）：基线对齐、窄屏可折行；
+   原型是上下两行，副标题独立成行在计数类场景显得松散 */
+.anx-panel__head > div:first-child {
+  display: flex; align-items: baseline; flex-wrap: wrap; gap: 2px 10px;
+  min-width: 0;
+}
+.anx-panel__head h2 { font-size: 16px; font-weight: 600; letter-spacing: -.012em; }
+.anx-panel__head p {
+  font-size: 13px; color: var(--muted-text); margin-top: 0;
+  font-variant-numeric: tabular-nums;
+}
+.anx-panel__head-actions { margin-left: auto; display: flex; align-items: center; gap: 8px; flex: none; }
+.anx-panel__body { padding: 24px; }
+.anx-panel__body--tight { padding: 0; }
+.anx-panel__foot {
+  padding: 16px 24px; border-top: 1px solid var(--border);
+  display: flex; align-items: center; gap: 12px; background: var(--paper);
+  border-radius: 0 0 var(--r) var(--r);
+}
+.anx-panel__foot-note { font-size: 13px; color: var(--muted-text); }
+
+.anx-grid-2 { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 24px; }
+.anx-grid-3 { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 24px; }
+.anx-grid-4 { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 24px; }
+.anx-grid-main-side { display: grid; grid-template-columns: minmax(0, 1fr) 380px; gap: 24px; align-items: start; }
+
+.anx-section + .anx-section { margin-top: 32px; }
+.anx-section__title { font-size: 16px; font-weight: 600; margin-bottom: 16px; }
+
+.anx-stack-2 { display: flex; flex-direction: column; gap: 8px; }
+.anx-stack-3 { display: flex; flex-direction: column; gap: 12px; }
+.anx-stack-4 { display: flex; flex-direction: column; gap: 16px; }
+.anx-stack-5 { display: flex; flex-direction: column; gap: 24px; }
+.anx-row-2 { display: flex; align-items: center; gap: 8px; }
+.anx-row-3 { display: flex; align-items: center; gap: 12px; }
+.anx-row-top { display: flex; align-items: flex-start; gap: 16px; }
+.anx-push { margin-left: auto; }
+.anx-wrap { flex-wrap: wrap; }
+
+.anx-divider { height: 1px; background: var(--border); border: 0; margin: 0; }
+
+
+/* --------------------------------------------------------------------------
+   6. 按钮
+   -------------------------------------------------------------------------- */
+
+.anx-btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+  height: 40px; padding: 0 18px;
+  border: 1px solid transparent; border-radius: var(--r);
+  background: var(--surface-2); color: var(--ink);
+  font-size: 14px; font-weight: 600; line-height: 1; white-space: nowrap;
+  cursor: pointer;
+  transition: background-color var(--t) var(--ease),
+              border-color var(--t) var(--ease),
+              color var(--t) var(--ease),
+              transform var(--t) var(--ease);
+}
+.anx-btn svg { width: 17px; height: 17px; }
+
+.anx-btn--primary { background: var(--ink); color: var(--on-dark); }
+.anx-btn--primary:hover { background: var(--ink-hover); transform: translateY(-1px); }
+.anx-btn--primary:active { background: var(--ink-press); transform: translateY(0); }
+
+/* 酸橙绿按钮：只留给授权同意这类品牌时刻 */
+.anx-btn--acid { background: var(--acid); color: var(--on-acid); }
+/* 品牌绿的交互档跟随基色（#78EA57）：浅色主题往深一档（按下更沉），深色主题往亮一档 */
+.anx-btn--acid:hover { background: #69CC4B; transform: translateY(-1px); }
+.anx-btn--acid:active { background: #58B63F; transform: translateY(0); }
+[data-theme="dark"] .anx-btn--acid:hover { background: #8CF26E; }
+
+.anx-btn--ghost { background: var(--surface); border-color: var(--border); color: var(--ink); }
+.anx-btn--ghost:hover { background: var(--paper); border-color: var(--hairline-hover); }
+
+.anx-btn--quiet { background: transparent; color: var(--ink); }
+.anx-btn--quiet:hover { background: var(--surface-2); }
+
+.anx-btn--danger { background: var(--danger); color: var(--on-dark); }
+.anx-btn--danger:hover { background: var(--danger-hover); transform: translateY(-1px); }
+.anx-btn--danger:active { background: var(--danger-hover); transform: translateY(0); }
+
+.anx-btn--danger-quiet { background: transparent; border-color: var(--danger-line); color: var(--danger); }
+.anx-btn--danger-quiet:hover { background: var(--danger-soft); border-color: var(--danger); }
+
+.anx-btn--lg { height: 48px; padding: 0 26px; font-size: 15px; }
+.anx-btn--lg svg { width: 18px; height: 18px; }
+.anx-btn--sm { height: 32px; padding: 0 12px; font-size: 13px; gap: 6px; }
+.anx-btn--sm svg { width: 15px; height: 15px; }
+.anx-btn--block { width: 100%; }
+
+.anx-btn:disabled, .anx-btn[aria-disabled="true"] { opacity: .4; cursor: not-allowed; transform: none; }
+.anx-btn:disabled:hover { background: var(--surface-2); transform: none; }
+.anx-btn--primary:disabled:hover { background: var(--ink); }
+.anx-btn--acid:disabled:hover { box-shadow: none; }
+
+.anx-btn__spinner {
+  width: 15px; height: 15px; border-radius: 50%;
+  border: 2px solid currentColor; border-top-color: transparent;
+  animation: spin .7s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* --------------------------------------------------------------------------
+   6b. 图标按钮（Vue 实现补充）
+   参考原型只给「顶栏动作区」里的图标按钮写了样式，其余位置的 .anx-iconbtn
+   （侧栏折叠、侧栏退出、弹窗 / 抽屉关闭、表单行内删除等）会落到浏览器默认
+   按钮外观上：0 圆角、2px outset 边框、灰色底，hover 是一个硬边方块。
+   这里补一版与 .anx-btn 同一语汇的基类：--r 圆角、幽灵底、柔和过渡、按下微缩。
+   位置放在按钮段之后、其它组件之前，后续更具体的选择器（.anx-topbar__actions
+   > .anx-iconbtn、.sidebar-toggle 等）仍然按原意覆盖本基类。
+   -------------------------------------------------------------------------- */
+
+.anx-iconbtn {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 36px; height: 36px; flex: none;
+  padding: 0;
+  border: 1px solid transparent; border-radius: var(--r);
+  background: transparent; color: var(--muted-text);
+  cursor: pointer;
+  transition: background-color var(--t) var(--ease),
+              border-color var(--t) var(--ease),
+              color var(--t) var(--ease),
+              transform var(--t) var(--ease);
+}
+.anx-iconbtn svg { width: 17px; height: 17px; }
+.anx-iconbtn:hover { background: var(--surface-2); color: var(--ink); }
+.anx-iconbtn:active { background: var(--surface-3); transform: scale(.94); }
+.anx-iconbtn:disabled, .anx-iconbtn[aria-disabled="true"] {
+  opacity: .4; cursor: not-allowed; transform: none; background: transparent;
+}
+
+
+/* --------------------------------------------------------------------------
+   7. 表单
+   -------------------------------------------------------------------------- */
+
+.anx-field { gap: 8px; }
+.anx-field__label { font-size: 14px; font-weight: 600; color: var(--ink); }
+.anx-field__label .anx-req { color: var(--danger); margin-left: 4px; }
+.anx-field__hint { font-size: 13px; color: var(--muted-text); line-height: 1.55; }
+.anx-field__error {
+  display: flex; align-items: flex-start; gap: 6px;
+  font-size: 13px; color: var(--danger); font-weight: 500;
+}
+.anx-field__error svg { width: 15px; height: 15px; margin-top: 2px; }
+
+.anx-input, .anx-select, .anx-textarea {
+  width: 100%; padding: 0 14px; height: 44px;
+  background: var(--bone); color: var(--ink);
+  border: 1px solid var(--border); border-radius: var(--r);
+  font-size: 15px;
+  transition: border-color var(--t) var(--ease), box-shadow var(--t) var(--ease);
+}
+.anx-textarea { height: auto; padding: 12px 14px; line-height: 1.6; resize: vertical; min-height: 96px; }
+.anx-select {
+  appearance: none; padding-right: 40px; cursor: pointer;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M4 6.5L8 10.5L12 6.5' stroke='%23262626' stroke-width='1.7' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  background-repeat: no-repeat; background-position: right 13px center; background-size: 16px;
+}
+[data-theme="dark"] .anx-select {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M4 6.5L8 10.5L12 6.5' stroke='%23F5F5F5' stroke-width='1.7' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+}
+.anx-input::placeholder, .anx-textarea::placeholder { color: var(--muted); }
+.anx-input:hover, .anx-select:hover, .anx-textarea:hover { border-color: var(--hairline-hover); }
+.anx-input:focus, .anx-select:focus, .anx-textarea:focus {
+  outline: 2px solid var(--focus); outline-offset: 1px;
+  border-color: var(--ink);
+}
+.anx-input[aria-invalid="true"], .anx-textarea[aria-invalid="true"] { border-color: var(--danger); }
+.anx-input:disabled, .anx-select:disabled, .anx-textarea:disabled {
+  background: var(--surface-2); color: var(--muted-text); cursor: not-allowed;
+}
+.anx-input--mono { font-family: var(--font-mono); font-size: 13px; }
+
+.anx-checkline { display: flex; align-items: flex-start; gap: 12px; cursor: pointer; }
+.anx-checkline input[type="checkbox"], .anx-checkline input[type="radio"] {
+  flex: none; width: 18px; height: 18px; margin: 3px 0 0;
+  accent-color: var(--ink); cursor: pointer;
+}
+.anx-checkline__text { font-size: 14px; line-height: 1.55; color: var(--muted-text); }
+.anx-checkline__text strong { color: var(--ink); font-weight: 600; }
+
+.anx-switch { display: inline-flex; align-items: center; gap: 12px; cursor: pointer; }
+.anx-switch input { position: absolute; opacity: 0; width: 0; height: 0; }
+.anx-switch__track {
+  width: 44px; height: 26px; border-radius: var(--r-pill); flex: none;
+  background: var(--surface-3); border: 1px solid var(--border);
+  position: relative; transition: background-color var(--t) var(--ease), border-color var(--t) var(--ease);
+}
+.anx-switch__track::after {
+  content: ""; position: absolute; top: 2px; left: 2px;
+  width: 20px; height: 20px; border-radius: 50%;
+  background: var(--bone); border: 1px solid var(--border);
+  transition: transform var(--t) var(--ease);
+}
+.anx-switch input:checked + .anx-switch__track { background: var(--acid); border-color: var(--acid); }
+.anx-switch input:checked + .anx-switch__track::after { transform: translateX(18px); background: var(--on-acid); border-color: transparent; }
+.anx-switch input:focus-visible + .anx-switch__track { outline: 2px solid var(--focus); outline-offset: 2px; }
+
+.anx-form-actions { display: flex; align-items: center; gap: 12px; margin-top: 4px; }
+.anx-form-actions--split { justify-content: space-between; }
+
+.anx-fieldset { border: 1px solid var(--border); border-radius: var(--r); padding: 24px; }
+.anx-fieldset__legend { font-size: 14px; font-weight: 600; padding: 0 8px; }
+
+
+/* --------------------------------------------------------------------------
+   8. 表格
+   -------------------------------------------------------------------------- */
+
+.anx-table-wrap { overflow-x: auto; }
+
+.anx-table { width: 100%; border-collapse: collapse; font-size: 14px; }
+.anx-table th {
+  text-align: left; white-space: nowrap;
+  padding: 12px 16px;
+  font-size: 12px; font-weight: 600; letter-spacing: .04em;
+  color: var(--muted-text); background: var(--paper);
+  border-bottom: 1px solid var(--border);
+}
+.anx-table td {
+  padding: 16px; border-bottom: 1px solid var(--border);
+  vertical-align: middle;
+}
+.anx-table tbody tr:last-child td { border-bottom: 0; }
+.anx-table tbody tr { transition: background-color var(--t) var(--ease); }
+.anx-table tbody tr:hover { background: var(--paper); }
+.anx-table tbody tr.is-selected { background: var(--paper); }
+.anx-table .anx-cell-main { display: flex; align-items: center; gap: 12px; min-width: 0; }
+.anx-table .anx-cell-title { font-weight: 600; font-size: 14px; color: var(--ink); }
+.anx-table .anx-cell-sub { font-size: 13px; color: var(--muted-text); }
+.anx-table .anx-cell-actions { display: flex; align-items: center; gap: 8px; justify-content: flex-end; }
+.anx-table--clickable tbody tr { cursor: pointer; }
+th.is-num, td.is-num { text-align: right; font-variant-numeric: tabular-nums; }
+
+
+/* --------------------------------------------------------------------------
+   9. 标签 / 徽记
+   -------------------------------------------------------------------------- */
+
+.anx-badge {
+  display: inline-flex; align-items: center; justify-content: center; gap: 5px; flex: none;
+  height: 24px; padding: 0 9px;
+  border: 1px solid transparent;
+  border-radius: var(--r-xs);
+  font-size: 12px; font-weight: 600; letter-spacing: .01em; line-height: 1; white-space: nowrap;
+}
+.anx-badge svg { width: 13px; height: 13px; }
+.anx-badge--ok      { background: var(--ok-soft);     color: var(--ok-ink);     border-color: rgba(33, 140, 0, .22); }
+.anx-badge--warn    { background: var(--warn-soft);   color: var(--warn-ink);   border-color: rgba(122, 82, 0, .22); }
+.anx-badge--danger  { background: var(--danger-soft); color: var(--danger);     border-color: var(--danger-line); }
+/* 强标记走描边而非铺色，避免列表里出现成排的品牌色块 */
+.anx-badge--brand   { background: transparent;        color: var(--ink);        border-color: var(--ink); }
+.anx-badge--neutral { background: var(--surface-2);   color: var(--ink);        border-color: var(--border); }
+.anx-badge--outline { background: transparent; border-color: var(--border); color: var(--muted-text); }
+
+[data-theme="dark"] .anx-badge--ok     { border-color: rgba(141, 232, 106, .28); }
+[data-theme="dark"] .anx-badge--warn   { border-color: rgba(232, 180, 74, .28); }
+
+.anx-tag {
+  display: inline-flex; align-items: center; justify-content: center;
+  padding: 4px 9px; border-radius: var(--r-xs);
+  background: var(--paper); border: 1px solid var(--border);
+  font-family: var(--font-mono); font-size: 12px; line-height: 1.5; color: var(--ink);
+  white-space: nowrap;
+}
+.anx-tag--brand { background: var(--ink); border-color: var(--ink); color: var(--on-dark); }
+.anx-tag--warn  { background: var(--warn-soft); border-color: rgba(122, 82, 0, .22); color: var(--warn-ink); }
+
+.anx-dot { width: 8px; height: 8px; border-radius: 50%; flex: none; background: currentColor; }
+.anx-dot--ok { background: var(--ok); }
+.anx-dot--warn { background: var(--warn); }
+.anx-dot--danger { background: var(--danger); }
+.anx-dot--idle { background: var(--muted); }
+
+.anx-scopelist { display: flex; flex-wrap: wrap; gap: 6px; }
+
+
+/* --------------------------------------------------------------------------
+   10. 头像与应用图标
+   -------------------------------------------------------------------------- */
+
+.anx-avatar {
+  flex: none; display: grid; place-items: center;
+  width: 36px; height: 36px; border-radius: var(--r);
+  background: var(--surface-2); color: var(--ink);
+  font-size: 14px; font-weight: 700; letter-spacing: .01em;
+  user-select: none;
+}
+.anx-avatar--lg { width: 52px; height: 52px; font-size: 19px; }
+.anx-avatar--sm { width: 28px; height: 28px; font-size: 12px; }
+
+.anx-appicon {
+  flex: none; display: grid; place-items: center;
+  width: 40px; height: 40px; border-radius: var(--r);
+  background: var(--paper); border: 1px solid var(--border);
+}
+.anx-appicon svg { width: 22px; height: 22px; }
+.anx-appicon--lg { width: 64px; height: 64px; }
+.anx-appicon--lg svg { width: 36px; height: 36px; }
+.anx-appicon--xl { width: 76px; height: 76px; }
+.anx-appicon--xl svg { width: 44px; height: 44px; }
+.anx-appicon--sm { width: 32px; height: 32px; }
+.anx-appicon--sm svg { width: 18px; height: 18px; }
+
+.anx-appicon--letter {
+  background: var(--ink); border-color: var(--ink);
+  color: var(--paper); font-size: 15px; font-weight: 700;
+}
+.anx-appicon--lg.anx-appicon--letter { font-size: 24px; }
+.anx-appicon--xl.anx-appicon--letter { font-size: 30px; }
+.anx-appicon--sm.anx-appicon--letter { font-size: 13px; }
+
+
+/* --------------------------------------------------------------------------
+   11. 提示条
+   -------------------------------------------------------------------------- */
+
+.anx-alert {
+  display: flex; align-items: flex-start; gap: 12px;
+  padding: 16px;
+  border-radius: var(--r);
+  font-size: 14px; line-height: 1.6;
+  border: 1px solid transparent;
+}
+.anx-alert svg { width: 18px; height: 18px; margin-top: 2px; flex: none; }
+.anx-alert__body { min-width: 0; }
+.anx-alert__title { font-weight: 600; }
+.anx-alert__text { color: inherit; opacity: .86; }
+.anx-alert__text + .anx-alert__text { margin-top: 6px; }
+/* info 不做彩色底，改用中性面 + 链接蓝图标，避免在色板外扩色相 */
+.anx-alert--info   { background: var(--paper); color: var(--ink); border-color: var(--border); }
+.anx-alert--info svg { color: var(--link); }
+.anx-alert--ok     { background: var(--ok-soft);     color: var(--ok-ink);     border-color: rgba(33, 140, 0, .20); }
+.anx-alert--warn   { background: var(--warn-soft);   color: var(--warn-ink);   border-color: rgba(122, 82, 0, .20); }
+.anx-alert--danger { background: var(--danger-soft); color: var(--danger);     border-color: var(--danger-line); }
+.anx-alert--plain  { background: var(--paper);       color: var(--ink);        border-color: var(--border); }
+.anx-alert code { font-size: 13px; background: rgba(38, 38, 38, .07); padding: 2px 6px; border-radius: var(--r-xs); }
+
+[data-theme="dark"] .anx-alert code { background: rgba(255, 255, 255, .1); }
+[data-theme="dark"] .anx-alert--ok     { border-color: rgba(141, 232, 106, .24); }
+[data-theme="dark"] .anx-alert--warn   { border-color: rgba(232, 180, 74, .24); }
+
+
+/* --------------------------------------------------------------------------
+   12. 代码 / 凭证展示
+   -------------------------------------------------------------------------- */
+
+.anx-code {
+  position: relative;
+  display: block; width: 100%;
+  padding: 13px 48px 13px 14px;
+  background: var(--code-bg); border: 1px solid var(--code-border);
+  border-radius: var(--r);
+  font-family: var(--font-mono); font-size: 13px; line-height: 1.65;
+  color: var(--code-ink);
+  overflow-x: auto; white-space: pre; tab-size: 2;
+}
+.anx-code--wrap { white-space: pre-wrap; overflow-wrap: anywhere; padding-right: 14px; }
+.anx-code--plain { padding-right: 14px; }
+
+.anx-codeblock { position: relative; }
+.anx-codeblock__copy { position: absolute; top: 8px; right: 8px; }
+
+.anx-copybtn {
+  display: inline-flex; align-items: center; justify-content: center; gap: 5px;
+  height: 30px; min-width: 30px; padding: 0 9px;
+  border: 1px solid var(--border); border-radius: var(--r-xs);
+  background: var(--bone); color: var(--ink);
+  font-size: 12px; font-weight: 600; cursor: pointer;
+  transition: background-color var(--t) var(--ease), border-color var(--t) var(--ease);
+}
+.anx-copybtn:hover { background: var(--surface-2); border-color: var(--hairline-hover); }
+.anx-copybtn svg { width: 15px; height: 15px; }
+.anx-copybtn.is-done { background: var(--ok-soft); color: var(--ok-ink); border-color: rgba(33, 140, 0, .24); }
+
+.anx-secret-reveal {
+  display: flex; align-items: center; gap: 12px;
+  padding: 16px;
+  background: var(--code-bg); border: 1px dashed var(--hairline-hover); border-radius: var(--r);
+}
+.anx-secret-reveal code {
+  flex: 1; min-width: 0; font-family: var(--font-mono); font-size: 13px;
+  color: var(--code-ink); overflow-wrap: anywhere;
+}
+.anx-secret-reveal.is-hidden code { color: var(--muted-text); letter-spacing: .12em; }
+
+.anx-kv { display: grid; grid-template-columns: 180px minmax(0, 1fr); gap: 0; }
+.anx-kv__row { display: contents; }
+.anx-kv dt {
+  padding: 12px 0; font-size: 13px; color: var(--muted-text); font-weight: 500;
+  border-bottom: 1px solid var(--border);
+}
+.anx-kv dd {
+  margin: 0; padding: 12px 0; font-size: 14px; color: var(--ink);
+  border-bottom: 1px solid var(--border);
+  overflow-wrap: anywhere;
+}
+.anx-kv__row:last-child dt, .anx-kv__row:last-child dd { border-bottom: 0; }
+.anx-kv--tight dt, .anx-kv--tight dd { padding: 10px 0; }
+
+
+/* --------------------------------------------------------------------------
+   13. 统计块
+   -------------------------------------------------------------------------- */
+
+.anx-stat {
+  padding: 20px 24px;
+  background: var(--surface); border: 1px solid var(--border); border-radius: var(--r);
+}
+.anx-stat__num {
+  font-size: 36px; font-weight: 700;
+  letter-spacing: -.035em; line-height: 1.1; color: var(--ink);
+  font-variant-numeric: tabular-nums;
+}
+.anx-stat__unit { font-size: 14px; font-weight: 500; color: var(--muted-text); margin-left: 4px; }
+.anx-stat__label { font-size: 13px; color: var(--muted-text); font-weight: 500; margin-bottom: 8px; }
+.anx-stat__delta { font-size: 13px; color: var(--muted-text); margin-top: 4px; }
+.anx-stat__delta--up { color: var(--ok-ink); }
+.anx-stat__delta--down { color: var(--danger); }
+
+
+/* --------------------------------------------------------------------------
+   14. 标签页
+   -------------------------------------------------------------------------- */
+
+.anx-tabs {
+  display: flex; align-items: center; gap: 4px;
+  border-bottom: 1px solid var(--border);
+  overflow-x: auto; scrollbar-width: none;
+}
+.anx-tabs::-webkit-scrollbar { display: none; }
+.anx-tab {
+  position: relative; flex: none;
+  padding: 12px 16px; margin-bottom: -1px;
+  border: 0; border-bottom: 2px solid transparent; background: none;
+  font-size: 14px; font-weight: 500; color: var(--muted-text); cursor: pointer;
+  white-space: nowrap;
+  transition: color var(--t) var(--ease), border-color var(--t) var(--ease);
+}
+.anx-tab:hover { color: var(--ink); text-decoration: none; }
+.anx-tab[aria-selected="true"] { color: var(--ink); font-weight: 600; border-bottom-color: var(--ink); }
+.anx-tab__count {
+  margin-left: 8px; padding: 2px 7px; border-radius: var(--r-pill);
+  background: var(--surface-2); color: var(--muted-text); font-size: 12px; font-weight: 600;
+}
+.anx-tab[aria-selected="true"] .anx-tab__count { background: var(--ink); color: var(--on-dark); }
+
+
+/* --------------------------------------------------------------------------
+   15. 空状态 / 骨架
+   -------------------------------------------------------------------------- */
+
+.anx-empty {
+  display: grid; justify-items: center; gap: 12px;
+  padding: 64px 24px; text-align: center;
+}
+.anx-empty__icon {
+  display: grid; place-items: center;
+  width: 56px; height: 56px; border-radius: var(--r);
+  background: var(--surface-2); color: var(--ink);
+}
+.anx-empty__icon svg { width: 26px; height: 26px; }
+.anx-empty__title { font-size: 16px; font-weight: 600; }
+.anx-empty__text { font-size: 14px; color: var(--muted-text); max-width: 52ch; line-height: 1.6; }
+.anx-empty__actions { margin-top: 8px; display: flex; gap: 8px; }
+
+.anx-skeleton {
+  border-radius: var(--r-xs);
+  background: linear-gradient(90deg, var(--surface-2) 0%, var(--surface-3) 50%, var(--surface-2) 100%);
+  background-size: 200% 100%;
+  animation: sk 1.4s ease-in-out infinite;
+}
+@keyframes sk { from { background-position: 200% 0; } to { background-position: -200% 0; } }
+
+
+/* --------------------------------------------------------------------------
+   19. 时间线（摘自「列表条目」节；TimelineList 组件）
+   -------------------------------------------------------------------------- */
+
+.anx-timeline { position: relative; padding-left: 24px; }
+.anx-timeline::before {
+  content: ""; position: absolute; left: 5px; top: 8px; bottom: 8px;
+  width: 1px; background: var(--border);
+}
+.anx-timeline__item { position: relative; padding-bottom: 20px; }
+.anx-timeline__item:last-child { padding-bottom: 0; }
+.anx-timeline__dot {
+  position: absolute; left: -24px; top: 6px;
+  width: 11px; height: 11px; border-radius: 50%;
+  background: var(--bone); border: 2px solid var(--muted);
+}
+.anx-timeline__dot--ok { border-color: var(--ok); }
+.anx-timeline__dot--warn { border-color: var(--warn); }
+.anx-timeline__dot--danger { border-color: var(--danger); }
+.anx-timeline__title { font-size: 14px; font-weight: 600; }
+.anx-timeline__meta { font-size: 13px; color: var(--muted-text); }
+
+
+/* --------------------------------------------------------------------------
+   20b. 带动作的输入框（显示/隐藏密码等）与密码强度条（摘自 20c 节）
+   -------------------------------------------------------------------------- */
+
+.anx-input-wrap { position: relative; display: block; }
+.anx-input-wrap .anx-input { padding-right: 48px; }
+.anx-input-wrap__action {
+  position: absolute; right: 4px; top: 50%;
+  transform: translateY(-50%);
+  display: grid; place-items: center;
+  width: 38px; height: 38px;
+  border: 0; border-radius: var(--r-xs);
+  background: none; color: var(--muted-text); cursor: pointer;
+  transition: background-color var(--t) var(--ease), color var(--t) var(--ease);
+}
+.anx-input-wrap__action:hover { background: var(--surface-2); color: var(--ink); }
+
+.anx-strength { display: flex; gap: 4px; margin-top: 12px; }
+.anx-strength__bar {
+  flex: 1; height: 4px; border-radius: 2px;
+  background: var(--surface-3);
+  transition: background-color var(--t) var(--ease);
+}
+.anx-strength__bar.is-on-1 { background: var(--danger); }
+.anx-strength__bar.is-on-2 { background: var(--muted); }
+.anx-strength__bar.is-on-3 { background: var(--ink); }
+
+/* 应用标志以官方品牌色着色，深色模式单独取色 */
+.anx-appicon svg { color: var(--app-brand, currentColor); }
+[data-theme="dark"] .anx-appicon svg { color: var(--app-brand-dark, var(--app-brand, currentColor)); }
+
+
+/* --------------------------------------------------------------------------
+   26. 表格「弱化行」状态（摘自源文件同名节）
+   整行弱化为次级文字色（不用 opacity 降透明度，保证对比度仍达标）；
+   状态徽记与行内操作按钮保持原色，不受影响。
+   -------------------------------------------------------------------------- */
+
+.anx-table tbody tr.is-retired td { color: var(--muted-text); }
+
+
+/* --------------------------------------------------------------------------
+   36.2 权限芯片（摘自源文件同名节）
+   中文名用无衬线（.anx-tag 原为等宽体，适合 scope 键）；键以更小的等宽字跟在后面，
+   做到「看得懂名字 + 能核对键」。
+   -------------------------------------------------------------------------- */
+
+.anx-tag--scope {
+  font-family: var(--font-sans);
+  font-size: 13px;
+  line-height: 1.45;
+}
+.anx-tag__key {
+  margin-left: 6px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--muted-text);
+}
+
+
+/* --------------------------------------------------------------------------
+   21. 响应式（通用部分）与打印
+   摘自源文件同一节；仅保留元素 / 组件相关规则，外壳与业务页的响应式不随资产。
+   -------------------------------------------------------------------------- */
+
+@media (max-width: 1280px) {
+  .anx-grid-main-side { grid-template-columns: minmax(0, 1fr); }
+  .anx-grid-4 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+@media (max-width: 900px) {
+  .anx-kv { grid-template-columns: minmax(0, 1fr); }
+  .anx-kv dt { padding-bottom: 4px; border-bottom: 0; }
+  .anx-kv dd { padding-top: 0; }
+}
+
+@media (max-width: 768px) {
+  .anx-grid-2, .anx-grid-3, .anx-grid-4 { grid-template-columns: minmax(0, 1fr); }
+  .anx-page-head { flex-wrap: wrap; align-items: flex-start; }
+  .anx-page-head__actions { margin-left: 0; width: 100%; }
+  .anx-table th, .anx-table td { padding: 14px 12px; }
+  .anx-t-h1 { font-size: 24px; }
+  .anx-panel__head { padding: 16px 20px; flex-wrap: wrap; }
+  .anx-panel__body { padding: 20px; }
+  .anx-panel__head-actions { margin-left: 0; width: 100%; }
+}
+
+@media (max-width: 540px) {
+  body { font-size: 15.5px; }
+  .anx-drawer { width: 100vw; }
+  .anx-modal { width: calc(100vw - 20px); }
+  .anx-modal__foot { flex-direction: column-reverse; }
+  .anx-modal__foot .anx-btn { width: 100%; }
+}
+
+@media print {
+  .anx-toast-layer, .anx-overlay-layer { display: none !important; }
+  body { background: #fff; }
+}
+
+
