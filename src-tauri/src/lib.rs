@@ -46,7 +46,7 @@ mod time_util;
 use error::KhResult;
 
 use agent::AgentStatus;
-use audit::{AuditEntry, AuditQuery, AuditStats};
+use audit::{AuditEntry, AuditPage, AuditQuery, AuditStats};
 use backup::{BackupItem, BackupOpts, BackupPreview, BackupResult};
 use config::{CheckIssue, ConfigBackup, ConfigDoc, HostEntry, SaveResult};
 use conn_test::{TestHistoryItem, TestOpts, TestResult};
@@ -603,6 +603,12 @@ fn read_audit_log(query: Option<AuditQuery>) -> KhResult<Vec<AuditEntry>> {
     audit::read_audit(query.unwrap_or_default())
 }
 
+/// 分页读取审计日志（附带过滤后的总数）
+#[tauri::command]
+fn read_audit_page(query: Option<AuditQuery>) -> KhResult<AuditPage> {
+    audit::read_audit_page(query.unwrap_or_default())
+}
+
 /// 审计统计
 #[tauri::command]
 fn audit_stats() -> KhResult<AuditStats> {
@@ -785,6 +791,7 @@ pub fn run() {
             backup_dir_path,
             // 审计
             read_audit_log,
+            read_audit_page,
             audit_stats,
             export_audit_csv,
             prune_audit,

@@ -16,6 +16,8 @@ import { useEnvStore } from '../lib/store'
 import Icon from '../design/vue/ui/Icon.vue'
 import PageHead from '../design/vue/ui/PageHead.vue'
 import SelectMenu from '../design/vue/ui/SelectMenu.vue'
+import TablePager from '../design/vue/ui/TablePager.vue'
+import { usePager } from '../design/vue/lib/usePager'
 import AlertBox from '../design/vue/ui/AlertBox.vue'
 import FieldInput from '../design/vue/ui/FieldInput.vue'
 import AppModal from '../components/AppModal.vue'
@@ -44,6 +46,20 @@ async function loadAll() {
   const failed = results.filter((r) => r.status === 'rejected')
   if (failed.length) loadError.value = failed[0].reason
   loading.value = false
+}
+
+/* 备份列表分页：数据在本地，客户端切片即可 */
+const {
+  page: backupPage,
+  pageSize: backupPageSize,
+  paged: pagedBackups,
+  total: backupTotal,
+} = usePager(computed(() => backups.value))
+
+/** 每页条数变化：回到第一页，避免停留在不存在的页码 */
+function onBackupPageSize(n) {
+  backupPageSize.value = n
+  backupPage.value = 1
 }
 
 /* 体检项 */
@@ -417,21 +433,53 @@ const auditQuery = ref({ category: '', result: '', keyword: '' })
 const auditList = ref([])
 const auditStat = ref(null)
 const auditLoading = ref(false)
-const auditLimit = ref(200)
+/* 审计日志可能很长，走后端分页：只取当前页，同时拿到过滤后的总数 */
+const auditPage = ref(1)
+const auditPageSize = ref(20)
+const auditTotal = ref(0)
 
 async function loadAudit() {
   auditLoading.value = true
   try {
-    auditList.value =
-      (await api.readAuditLog({
-        ...auditQuery.value,
-        limit: auditLimit.value,
-      })) || []
+    const res = await api.readAuditPage({
+      ...auditQuery.value,
+      offset: (auditPage.value - 1) * auditPageSize.value,
+      limit: auditPageSize.value,
+    })
+    const total = res?.total || 0
+    const maxPage = Math.max(1, Math.ceil(total / auditPageSize.value))
+    // 清空 / 清理后当前页可能越界，收敛到最后一页重新取
+    if (auditPage.value > maxPage) {
+      auditPage.value = maxPage
+      return await loadAudit()
+    }
+    auditList.value = res?.entries || []
+    auditTotal.value = total
   } catch {
     auditList.value = []
+    auditTotal.value = 0
   } finally {
     auditLoading.value = false
   }
+}
+
+/** 筛选条件变化：回到第一页再查询 */
+function reloadAudit() {
+  auditPage.value = 1
+  loadAudit()
+}
+
+function onAuditPage(p) {
+  if (p === auditPage.value) return
+  auditPage.value = p
+  loadAudit()
+}
+
+function onAuditPageSize(n) {
+  if (n === auditPageSize.value) return
+  auditPageSize.value = n
+  auditPage.value = 1
+  loadAudit()
 }
 
 async function loadAuditStats() {
@@ -503,7 +551,7 @@ function resultLabel(r) {
 let auditTimer = null
 function scheduleAudit() {
   clearTimeout(auditTimer)
-  auditTimer = setTimeout(loadAudit, 300)
+  auditTimer = setTimeout(reloadAudit, 300)
 }
 
 onMounted(async () => {
@@ -828,48 +876,57 @@ onMounted(async () => {
             <button class="anx-btn anx-btn--primary anx-btn--sm" @click="openBackup">立即创建</button>
           </div>
         </div>
-        <div v-else class="anx-table-wrap">
-          <table class="anx-table">
-            <thead>
-              <tr>
-                <th>文件名</th>
-                <th>创建时间</th>
-                <th>大小</th>
-                <th>加密</th>
-                <th class="is-num">操作</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr v-for="b in backups" :key="b.name">
-                <td>
-                  <div class="anx-cell-main">
-                    <Icon name="file" :size="15" class="anx-t-muted" />
-                    <code class="kh-mono">{{ b.name }}</code>
-                  </div>
-                </td>
-                <td><code class="kh-mono kh-t-xs">{{ fmtTime(b.createdAt) }}</code></td>
-                <td><code class="kh-mono kh-t-xs">{{ b.sizeLabel }}</code></td>
-                <td>
-                  <span class="anx-badge" :class="b.encrypted ? 'anx-badge--ok' : 'anx-badge--danger'">
-                    {{ b.encrypted ? '已加密' : '明文' }}
-                  </span>
-                </td>
-                <td class="is-num">
-                  <div class="anx-cell-actions">
-                    <button class="anx-btn anx-btn--ghost anx-btn--sm" @click="askRestore(b)">恢复</button>
-                    <button
-                      class="anx-iconbtn kh-danger-text"
-                      title="删除备份"
-                      aria-label="删除备份"
-                      @click="deleteBackup(b)"
-                    >
-                      <Icon name="trash" :size="15" />
-                    </button>
-                  </div>
-                </td>
-              </tr>
-            </tbody>
-          </table>
+        <div v-else>
+          <div class="anx-table-wrap">
+            <table class="anx-table">
+              <thead>
+                <tr>
+                  <th>文件名</th>
+                  <th>创建时间</th>
+                  <th>大小</th>
+                  <th>加密</th>
+                  <th class="is-num">操作</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr v-for="b in pagedBackups" :key="b.name">
+                  <td>
+                    <div class="anx-cell-main">
+                      <Icon name="file" :size="15" class="anx-t-muted" />
+                      <code class="kh-mono">{{ b.name }}</code>
+                    </div>
+                  </td>
+                  <td><code class="kh-mono kh-t-xs">{{ fmtTime(b.createdAt) }}</code></td>
+                  <td><code class="kh-mono kh-t-xs">{{ b.sizeLabel }}</code></td>
+                  <td>
+                    <span class="anx-badge" :class="b.encrypted ? 'anx-badge--ok' : 'anx-badge--danger'">
+                      {{ b.encrypted ? '已加密' : '明文' }}
+                    </span>
+                  </td>
+                  <td class="is-num">
+                    <div class="anx-cell-actions">
+                      <button class="anx-btn anx-btn--ghost anx-btn--sm" @click="askRestore(b)">恢复</button>
+                      <button
+                        class="anx-iconbtn kh-danger-text"
+                        title="删除备份"
+                        aria-label="删除备份"
+                        @click="deleteBackup(b)"
+                      >
+                        <Icon name="trash" :size="15" />
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <TablePager
+            :total="backupTotal"
+            :page="backupPage"
+            :page-size="backupPageSize"
+            @update:page="backupPage = $event"
+            @update:page-size="onBackupPageSize"
+          />
         </div>
       </div>
     </section>
@@ -911,14 +968,14 @@ onMounted(async () => {
             :options="categoryOptions"
             aria-label="按类别筛选"
             style="width: 150px"
-            @update:model-value="loadAudit"
+            @update:model-value="reloadAudit"
           />
           <SelectMenu
             v-model="auditQuery.result"
             :options="resultOptions"
             aria-label="按结果筛选"
             style="width: 140px"
-            @update:model-value="loadAudit"
+            @update:model-value="reloadAudit"
           />
         </div>
 
@@ -945,6 +1002,16 @@ onMounted(async () => {
             </span>
           </div>
         </div>
+        <TablePager
+          v-if="auditList.length"
+          class="kh-audit-pager"
+          :total="auditTotal"
+          :page="auditPage"
+          :page-size="auditPageSize"
+          :sizes="[20, 50, 100]"
+          @update:page="onAuditPage"
+          @update:page-size="onAuditPageSize"
+        />
       </div>
     </section>
     </template>

@@ -21,6 +21,8 @@ import StatCard from '../design/vue/ui/StatCard.vue'
 import EmptyState from '../design/vue/ui/EmptyState.vue'
 import AlertBox from '../design/vue/ui/AlertBox.vue'
 import SelectMenu from '../design/vue/ui/SelectMenu.vue'
+import TablePager from '../design/vue/ui/TablePager.vue'
+import { usePager } from '../design/vue/lib/usePager'
 import SegmentedControl from '../design/vue/ui/SegmentedControl.vue'
 import TabBar from '../design/vue/ui/TabBar.vue'
 import KvList from '../design/vue/ui/KvList.vue'
@@ -119,6 +121,25 @@ const stats = computed(() => ({
   badPerm: keys.value.filter((k) => !k.permCompliant).length,
   referencing: keys.value.filter((k) => referencedSet.value.has(k.filename)).length,
 }))
+
+/* 表格分页：本地数据，客户端切片 */
+const {
+  page: keyPage,
+  pageSize: keyPageSize,
+  paged: pagedKeys,
+  total: keyTotal,
+} = usePager(filtered)
+
+/** 筛选条件变化时回到第一页 */
+watch([q, filterAlgo, filterFlag], () => {
+  keyPage.value = 1
+})
+
+/** 每页条数变化：回到第一页，避免停留在不存在的页码 */
+function onKeyPageSize(n) {
+  keyPageSize.value = n
+  keyPage.value = 1
+}
 
 /* config 中引用的密钥（用于「已在 config 中使用」标记） */
 const referencedSet = ref(new Set())
@@ -631,95 +652,106 @@ defineExpose({ load })
           </template>
         </EmptyState>
 
-        <div v-else class="anx-table-wrap">
-          <table class="anx-table anx-table--clickable kh-key-table">
-            <thead>
-              <tr>
-                <th>文件名</th>
-                <th>算法</th>
-                <th>指纹</th>
-                <th>权限</th>
-                <th>口令</th>
-                <th class="is-num">操作</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr
-                v-for="k in filtered"
-                :key="k.filename"
-                tabindex="0"
-                role="button"
-                :aria-label="`查看密钥 ${k.filename} 详情`"
-                @click="openDetail(k)"
-                @keydown.enter="openDetail(k)"
-                @keydown.space.prevent="openDetail(k)"
-              >
-                <td>
-                  <div class="anx-cell-main">
-                    <span class="kh-key-ico"><Icon name="key" :size="15" /></span>
-                    <div class="kh-grow">
-                      <div class="anx-cell-title">{{ k.filename }}</div>
-                      <div v-if="k.comment || k.createdAt" class="anx-cell-sub">
-                        {{ [k.comment, (k.createdAt || '').slice(0, 10)].filter(Boolean).join(' · ') }}
+        <div v-else>
+          <div class="anx-table-wrap">
+            <table class="anx-table anx-table--clickable kh-key-table">
+              <thead>
+                <tr>
+                  <th>文件名</th>
+                  <th>算法</th>
+                  <th>指纹</th>
+                  <th>权限</th>
+                  <th>口令</th>
+                  <th class="is-num">操作</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr
+                  v-for="k in pagedKeys"
+                  :key="k.filename"
+                  tabindex="0"
+                  role="button"
+                  :aria-label="`查看密钥 ${k.filename} 详情`"
+                  @click="openDetail(k)"
+                  @keydown.enter="openDetail(k)"
+                  @keydown.space.prevent="openDetail(k)"
+                >
+                  <td>
+                    <div class="anx-cell-main">
+                      <span class="kh-key-ico"><Icon name="key" :size="15" /></span>
+                      <div class="kh-grow">
+                        <div class="anx-cell-title">{{ k.filename }}</div>
+                        <div v-if="k.comment || k.createdAt" class="anx-cell-sub">
+                          {{ [k.comment, (k.createdAt || '').slice(0, 10)].filter(Boolean).join(' · ') }}
+                        </div>
                       </div>
+                      <span
+                        v-if="referencedSet.has(k.filename)"
+                        class="anx-badge anx-badge--outline"
+                        title="已被 ~/.ssh/config 引用"
+                      >
+                        已引用
+                      </span>
                     </div>
-                    <span
-                      v-if="referencedSet.has(k.filename)"
-                      class="anx-badge anx-badge--outline"
-                      title="已被 ~/.ssh/config 引用"
-                    >
-                      已引用
+                  </td>
+                  <td><span class="anx-tag">{{ k.algorithm }}</span></td>
+                  <td>
+                    <code class="kh-mono kh-fp" :title="k.fingerprint || ''">{{ shortFp(k.fingerprint) }}</code>
+                  </td>
+                  <td>
+                    <span class="anx-badge" :class="k.permCompliant ? 'anx-badge--ok' : 'anx-badge--warn'">
+                      {{ k.permDisplay || '—' }}
                     </span>
-                  </div>
-                </td>
-                <td><span class="anx-tag">{{ k.algorithm }}</span></td>
-                <td>
-                  <code class="kh-mono kh-fp" :title="k.fingerprint || ''">{{ shortFp(k.fingerprint) }}</code>
-                </td>
-                <td>
-                  <span class="anx-badge" :class="k.permCompliant ? 'anx-badge--ok' : 'anx-badge--warn'">
-                    {{ k.permDisplay || '—' }}
-                  </span>
-                </td>
-                <td>
-                  <span class="anx-badge" :class="k.hasPassphrase ? 'anx-badge--ok' : 'anx-badge--neutral'">
-                    <Icon :name="k.hasPassphrase ? 'lock' : 'unlock'" :size="12" />
-                    {{ k.hasPassphrase ? '已保护' : '无' }}
-                  </span>
-                </td>
-                <td class="is-num" @click.stop>
-                  <div class="anx-cell-actions">
-                    <button
-                      v-if="!k.permCompliant"
-                      class="anx-btn anx-btn--danger-quiet anx-btn--sm"
-                      title="修复为 600"
-                      @click="fixPerm(k)"
-                    >
-                      修复权限
-                    </button>
-                    <button
-                      class="anx-btn anx-btn--ghost anx-btn--sm"
-                      title="加入 ssh-agent"
-                      aria-label="加入 ssh-agent"
-                      :disabled="agentBusy"
-                      @click="addToAgent(k)"
-                    >
-                      <Icon name="shield" :size="14" />
-                      agent
-                    </button>
-                    <button
-                      class="anx-iconbtn anx-btn--sm"
-                      title="查看详情"
-                      aria-label="查看详情"
-                      @click="openDetail(k)"
-                    >
-                      <Icon name="eye" :size="15" />
-                    </button>
-                  </div>
-                </td>
-              </tr>
-            </tbody>
-          </table>
+                  </td>
+                  <td>
+                    <span class="anx-badge" :class="k.hasPassphrase ? 'anx-badge--ok' : 'anx-badge--neutral'">
+                      <Icon :name="k.hasPassphrase ? 'lock' : 'unlock'" :size="12" />
+                      {{ k.hasPassphrase ? '已保护' : '无' }}
+                    </span>
+                  </td>
+                  <td class="is-num" @click.stop>
+                    <div class="anx-cell-actions">
+                      <button
+                        v-if="!k.permCompliant"
+                        class="anx-btn anx-btn--danger-quiet anx-btn--sm"
+                        title="修复为 600"
+                        @click="fixPerm(k)"
+                      >
+                        修复权限
+                      </button>
+                      <button
+                        class="anx-btn anx-btn--ghost anx-btn--sm"
+                        title="加入 ssh-agent"
+                        aria-label="加入 ssh-agent"
+                        :disabled="agentBusy"
+                        @click="addToAgent(k)"
+                      >
+                        <Icon name="shield" :size="14" />
+                        agent
+                      </button>
+                      <button
+                        class="anx-iconbtn anx-btn--sm"
+                        title="查看详情"
+                        aria-label="查看详情"
+                        @click="openDetail(k)"
+                      >
+                        <Icon name="eye" :size="15" />
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <TablePager
+            v-if="keyTotal"
+            class="kh-key-pager"
+            :total="keyTotal"
+            :page="keyPage"
+            :page-size="keyPageSize"
+            @update:page="keyPage = $event"
+            @update:page-size="onKeyPageSize"
+          />
         </div>
       </div>
     </section>

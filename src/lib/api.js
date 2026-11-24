@@ -386,6 +386,15 @@ export function readAuditLog(query = {}) {
   return call('read_audit_log', { query })
 }
 
+/**
+ * 分页读取审计日志。
+ * @param {{category?:string, result?:string, keyword?:string, offset?:number, limit?:number}} query
+ * @returns {Promise<{entries:Array, total:number}>}
+ */
+export function readAuditPage(query = {}) {
+  return call('read_audit_page', { query })
+}
+
 export function auditStats() {
   return call('audit_stats')
 }

@@ -61,6 +61,9 @@ pub struct AuditQuery {
     /// 最多返回条数（0 表示不限，默认 500）
     #[serde(default)]
     pub limit: u32,
+    /// 跳过前 N 条（分页偏移，仅 read_audit_page 使用）
+    #[serde(default)]
+    pub offset: u32,
 }
 
 fn ensure_file() -> KhResult<std::path::PathBuf> {
@@ -111,8 +114,36 @@ pub fn log(
     let _ = append(category, action, message, result, target, detail);
 }
 
+/// 审计日志分页结果
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct AuditPage {
+    /// 当前页记录（最新在前）
+    pub entries: Vec<AuditEntry>,
+    /// 过滤后的总条数（未分页）
+    pub total: usize,
+}
+
 /// 读取审计日志（倒序，最新在前）
 pub fn read_audit(q: AuditQuery) -> KhResult<Vec<AuditEntry>> {
+    let mut out = collect_filtered(&q)?;
+    let limit = if q.limit == 0 { 500 } else { q.limit as usize };
+    out.truncate(limit);
+    Ok(out)
+}
+
+/// 分页读取审计日志：先过滤出全部匹配项，再按 offset/limit 切片。
+pub fn read_audit_page(q: AuditQuery) -> KhResult<AuditPage> {
+    let all = collect_filtered(&q)?;
+    let total = all.len();
+    let offset = q.offset as usize;
+    let limit = if q.limit == 0 { 200 } else { q.limit as usize };
+    let entries = all.into_iter().skip(offset).take(limit).collect();
+    Ok(AuditPage { entries, total })
+}
+
+/// 按条件过滤并按时间倒序返回全部记录
+fn collect_filtered(q: &AuditQuery) -> KhResult<Vec<AuditEntry>> {
     let p = paths::audit_path()?;
     if !p.is_file() {
         return Ok(Vec::new());
@@ -147,8 +178,6 @@ pub fn read_audit(q: AuditQuery) -> KhResult<Vec<AuditEntry>> {
     }
 
     out.reverse();
-    let limit = if q.limit == 0 { 500 } else { q.limit as usize };
-    out.truncate(limit);
     Ok(out)
 }
 

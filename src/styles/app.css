@@ -1715,6 +1715,11 @@ body {
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+/* 审计区 panel body 自带 24px 内边距，分页条无需再左右缩进 */
+.kh-audit-pager {
+  padding-left: 0;
+  padding-right: 0;
+}
 @media (max-width: 900px) {
   .kh-audit-row {
     grid-template-columns: 1fr auto;

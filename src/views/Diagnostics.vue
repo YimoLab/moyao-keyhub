@@ -20,6 +20,8 @@ import { useEnvStore } from '../lib/store'
 import Icon from '../design/vue/ui/Icon.vue'
 import PageHead from '../design/vue/ui/PageHead.vue'
 import SelectMenu from '../design/vue/ui/SelectMenu.vue'
+import TablePager from '../design/vue/ui/TablePager.vue'
+import { usePager } from '../design/vue/lib/usePager'
 import SegmentedControl from '../design/vue/ui/SegmentedControl.vue'
 import AlertBox from '../design/vue/ui/AlertBox.vue'
 import AppModal from '../components/AppModal.vue'
@@ -307,9 +309,23 @@ async function removeKnownHost() {
 /* ══════ 历史 ══════ */
 const history = ref([])
 
+/* 后端最多保留 200 条测试记录，这里取全部后客户端分页 */
+const {
+  page: histPage,
+  pageSize: histPageSize,
+  paged: pagedHistory,
+  total: histTotal,
+} = usePager(computed(() => history.value))
+
+/** 每页条数变化：回到第一页，避免停留在不存在的页码 */
+function onHistPageSize(n) {
+  histPageSize.value = n
+  histPage.value = 1
+}
+
 async function loadHistory() {
   try {
-    history.value = (await api.readTestHistory(30)) || []
+    history.value = (await api.readTestHistory(0)) || []
   } catch {
     history.value = []
   }
@@ -695,35 +711,45 @@ onMounted(async () => {
         <div v-if="!history.length" class="anx-empty kh-empty-inline">
           <p class="anx-empty__text">还没有测试记录</p>
         </div>
-        <div v-else class="anx-table-wrap">
-          <table class="anx-table">
-            <thead>
-              <tr>
-                <th>时间</th>
-                <th>目标</th>
-                <th>结果</th>
-                <th>耗时</th>
-                <th>说明</th>
-                <th class="is-num">操作</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr v-for="(h, i) in history" :key="i">
-                <td><code class="kh-mono kh-t-xs">{{ h.at?.slice(0, 19).replace('T', ' ') }}</code></td>
-                <td><code class="kh-mono kh-t-xs">{{ h.target }}</code></td>
-                <td>
-                  <span class="anx-badge" :class="h.success ? 'anx-badge--ok' : 'anx-badge--danger'">
-                    {{ h.success ? '成功' : '失败' }}
-                  </span>
-                </td>
-                <td><code class="kh-mono kh-t-xs">{{ h.elapsedMs }}ms</code></td>
-                <td><span class="kh-hist-sum">{{ h.summary }}</span></td>
-                <td class="is-num">
-                  <button class="anx-btn anx-btn--ghost anx-btn--sm" @click="quickAlias(h.target)">重测</button>
-                </td>
-              </tr>
-            </tbody>
-          </table>
+        <div v-else>
+          <div class="anx-table-wrap">
+            <table class="anx-table">
+              <thead>
+                <tr>
+                  <th>时间</th>
+                  <th>目标</th>
+                  <th>结果</th>
+                  <th>耗时</th>
+                  <th>说明</th>
+                  <th class="is-num">操作</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr v-for="(h, i) in pagedHistory" :key="i">
+                  <td><code class="kh-mono kh-t-xs">{{ h.at?.slice(0, 19).replace('T', ' ') }}</code></td>
+                  <td><code class="kh-mono kh-t-xs">{{ h.target }}</code></td>
+                  <td>
+                    <span class="anx-badge" :class="h.success ? 'anx-badge--ok' : 'anx-badge--danger'">
+                      {{ h.success ? '成功' : '失败' }}
+                    </span>
+                  </td>
+                  <td><code class="kh-mono kh-t-xs">{{ h.elapsedMs }}ms</code></td>
+                  <td><span class="kh-hist-sum">{{ h.summary }}</span></td>
+                  <td class="is-num">
+                    <button class="anx-btn anx-btn--ghost anx-btn--sm" @click="quickAlias(h.target)">重测</button>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <TablePager
+            v-if="histTotal"
+            :total="histTotal"
+            :page="histPage"
+            :page-size="histPageSize"
+            @update:page="histPage = $event"
+            @update:page-size="onHistPageSize"
+          />
         </div>
       </div>
     </section>
