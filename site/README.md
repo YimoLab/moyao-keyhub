@@ -143,7 +143,8 @@ Pages 会自动应用 `_headers` 与 `_redirects`，并使用根目录的 `404.h
 |---|---|
 | `_headers` | 安全头与按路径分组的缓存策略 |
 | `404.html` | Worker 由 `not_found_handling` 启用；Pages 会自动使用 |
-| `robots.txt` | 允许抓取；绑定域名后可补 sitemap |
+| `robots.txt` | 允许抓取并指向 sitemap |
+| `sitemap.xml` | 单页 sitemap，指向正式域名 |
 
 CSS / JS / 截图的文件名不带内容哈希，所以缓存策略设为 `must-revalidate`：浏览器每次用 ETag 验证，更新样式后能立即生效。字体文件名稳定，缓存 7 天。
 
@@ -155,7 +156,7 @@ CSS / JS / 截图的文件名不带内容哈希，所以缓存策略设为 `must
 2. 控制台无 CSP 报错；Network 中 `api.github.com/.../releases/latest` 返回 200；
 3. 页脚版本、安装包体积与 GitHub 最新 Release 一致；
 4. 任意不存在的路径（如 `/not-a-page`）显示自定义 404；
-5. 绑定域名后，把 `index.html` 的 `og:image` 改成绝对地址：`https://<domain>/assets/shots/key-vault.webp`；建议同时加一行 `<link rel="canonical" href="https://<domain>/">`，避免默认域名（`*.workers.dev` / `*.pages.dev`）与自定义域名重复收录；
+5. 正式域名为 `https://keyhub.casuainess.cn/`；`canonical`、`og:url`、`og:image`、`twitter:image`、JSON-LD 的 `url` 与 `robots.txt` 里的 sitemap 都已指向它。换域名时同步修改这些位置，避免默认域名（`*.workers.dev` / `*.pages.dev`）与正式域名重复收录；
 6. 两个下载按钮都能下载到最新安装包。
 
 ### 说明

@@ -328,6 +328,8 @@ KeyHub/
 
 ## 官网
 
+线上地址：<https://keyhub.casuainess.cn/>
+
 `site/` 是产品官网的静态单页，介绍程序作用、功能与安全设计，零构建、无框架运行时：
 
 ```bash
