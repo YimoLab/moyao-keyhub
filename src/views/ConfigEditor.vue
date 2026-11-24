@@ -429,6 +429,8 @@ function renderPreview(h) {
   }
   for (const pair of h.extra || []) {
     if (pair[0] === 'HostAlias' || !pair[0]) continue
+    // IdentitiesOnly 已由上面的 IdentityFile 自动补一行，跳过以免预览里重复
+    if (pair[0].toLowerCase() === 'identitiesonly') continue
     lines.push(`    ${pair[0]} ${pair[1]}`)
   }
   return lines.join('\n')
@@ -862,7 +864,7 @@ onMounted(async () => {
         <li v-for="b in backups" :key="b.name" class="kh-list__item">
           <span class="kh-host-item__ico"><Icon name="clock" :size="14" /></span>
           <div class="kh-list__body">
-            <div class="kh-list__title">{{ b.name }}</div>
+            <div class="kh-list__title kh-list__title--file" :title="b.name">{{ b.name }}</div>
             <div class="kh-list__text kh-mono">
               {{ b.createdAt?.slice(0, 19).replace('T', ' ') || '—' }}
               · {{ b.lines }} 行 · {{ fmtSize(b.size) }}

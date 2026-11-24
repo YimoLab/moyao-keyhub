@@ -934,7 +934,9 @@ onMounted(async () => {
             <span class="kh-audit-row__time">{{ fmtTime(e.at) }}</span>
             <span class="anx-tag">{{ catLabel(e.category) }}</span>
             <span class="kh-audit-row__msg">{{ e.message }}</span>
-            <code v-if="e.target" class="kh-audit-row__target">{{ e.target }}</code>
+            <!-- target 可能为空，但必须始终占位：grid 固定 5 列，
+                 缺一个子元素会把结果徽章整列左移 -->
+            <code class="kh-audit-row__target" :title="e.target || ''">{{ e.target || '—' }}</code>
             <span
               class="anx-badge"
               :class="e.result === 'ok' ? 'anx-badge--ok' : e.result === 'fail' ? 'anx-badge--danger' : 'anx-badge--warn'"

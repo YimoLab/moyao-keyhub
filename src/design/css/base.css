@@ -409,11 +409,11 @@ th.is-num, td.is-num { text-align: right; font-variant-numeric: tabular-nums; }
    -------------------------------------------------------------------------- */
 
 .anx-badge {
-  display: inline-flex; align-items: center; gap: 5px; flex: none;
+  display: inline-flex; align-items: center; justify-content: center; gap: 5px; flex: none;
   height: 24px; padding: 0 9px;
   border: 1px solid transparent;
   border-radius: var(--r-xs);
-  font-size: 12px; font-weight: 600; letter-spacing: .01em; white-space: nowrap;
+  font-size: 12px; font-weight: 600; letter-spacing: .01em; line-height: 1; white-space: nowrap;
 }
 .anx-badge svg { width: 13px; height: 13px; }
 .anx-badge--ok      { background: var(--ok-soft);     color: var(--ok-ink);     border-color: rgba(33, 140, 0, .22); }
@@ -428,10 +428,10 @@ th.is-num, td.is-num { text-align: right; font-variant-numeric: tabular-nums; }
 [data-theme="dark"] .anx-badge--warn   { border-color: rgba(232, 180, 74, .28); }
 
 .anx-tag {
-  display: inline-flex; align-items: center;
+  display: inline-flex; align-items: center; justify-content: center;
   padding: 4px 9px; border-radius: var(--r-xs);
   background: var(--paper); border: 1px solid var(--border);
-  font-family: var(--font-mono); font-size: 12px; color: var(--ink);
+  font-family: var(--font-mono); font-size: 12px; line-height: 1.5; color: var(--ink);
   white-space: nowrap;
 }
 .anx-tag--brand { background: var(--ink); border-color: var(--ink); color: var(--on-dark); }

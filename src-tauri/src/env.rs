@@ -642,6 +642,7 @@ pub fn quick_summary() -> KhResult<EnvSummary> {
         perm_compliant: report.ssh_dir.perm_compliant,
         agent_label: agent.label.clone(),
         agent_running: agent.running,
+        agent_count: agent.count,
         key_count: report.ssh_dir.key_count,
         has_config: report.ssh_dir.has_config,
         platform: report.platform.clone(),
@@ -660,6 +661,8 @@ pub struct EnvSummary {
     pub perm_compliant: bool,
     pub agent_label: String,
     pub agent_running: bool,
+    /// agent 已加载的密钥数（侧栏精简展示用，避免解析 label 文本）
+    pub agent_count: usize,
     pub key_count: usize,
     pub has_config: bool,
     pub platform: String,

@@ -22,6 +22,8 @@ const env = reactive({
   permCompliant: true,
   agentLabel: '检测中…',
   agentRunning: false,
+  /** agent 已加载的密钥数（侧栏精简展示用） */
+  agentCount: 0,
   keyCount: 0,
   hasConfig: false,
   /** 全量报告（诊断页用） */
@@ -84,6 +86,7 @@ async function refreshEnv() {
     env.permCompliant = !!summary.permCompliant
     env.agentLabel = summary.agentLabel || '未知'
     env.agentRunning = !!summary.agentRunning
+    env.agentCount = summary.agentCount || 0
     env.keyCount = summary.keyCount || 0
     env.hasConfig = !!summary.hasConfig
     env.loaded = true
@@ -119,6 +122,7 @@ async function loadReport(createSshDir = false) {
   }
   if (report.agent) {
     env.agentRunning = !!report.agent.running
+    env.agentCount = report.agent.identities?.length || 0
     env.agentLabel = report.agent.running
       ? report.agent.identities?.length
         ? `agent 已加载 ${report.agent.identities.length} 把密钥`
@@ -133,6 +137,7 @@ async function refreshAgent() {
   try {
     const st = normalize(await api.agentStatus())
     env.agentRunning = !!st.running
+    env.agentCount = st.count || 0
     env.agentLabel = st.label || ''
     return st
   } catch {
@@ -221,7 +226,7 @@ const derived = {
   },
   get agentTone() {
     if (!env.agentRunning) return 'idle'
-    return env.agentLabel.includes('未加载') ? 'warn' : 'ok'
+    return env.agentCount === 0 ? 'warn' : 'ok'
   },
   get gitTone() {
     return env.gitVersion ? 'ok' : 'idle'

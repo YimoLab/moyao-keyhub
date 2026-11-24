@@ -692,6 +692,8 @@ body {
   gap: 12px;
   padding: 14px 0;
   border-bottom: 1px solid var(--border);
+  /* 作为 grid/flex 子项时允许收缩：否则单行标题会把整行撑出容器宽度 */
+  min-width: 0;
 }
 .kh-list__item:last-child {
   border-bottom: 0;
@@ -707,6 +709,20 @@ body {
   flex-wrap: wrap;
   font-size: 14px;
   font-weight: 600;
+}
+/* 单行标题（如备份文件名）：不换行、超长省略，避免把右侧操作区挤到第二行 */
+.kh-list__title--file {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+/* 列表行的操作区不参与收缩、也不换行。
+   抽屉出现纵向滚动条时会吃掉十几像素宽度，默认 flex-shrink 会先把按钮组压窄，
+   导致「预览 / 回滚 / 删除」三连按钮折行。 */
+.kh-list__item > .kh-actions {
+  flex: 0 0 auto;
+  flex-wrap: nowrap;
 }
 .kh-list__text {
   margin-top: 4px;

@@ -23,6 +23,13 @@ const store = useEnvStore()
 const env = store.env
 const derived = store.derived
 
+/** 侧栏环境卡的 agent 值：只说结论，完整状态放 title，避免窄栏里被截断 */
+const agentShort = computed(() => {
+  if (env.error) return '未知'
+  if (!env.agentRunning) return '未运行'
+  return env.agentCount > 0 ? `已加载 ${env.agentCount} 把` : '未加载密钥'
+})
+
 const isBare = computed(() => route.meta.bare === true)
 
 /* ══════ 标题栏风格 ══════
@@ -308,7 +315,7 @@ function onSearchKey(e) {
         </div>
         <div class="kh-env__row">
           <span>ssh-agent</span>
-          <b :class="'kh-tone--' + derived.agentTone" :title="env.agentLabel">{{ env.agentLabel }}</b>
+          <b :class="'kh-tone--' + derived.agentTone" :title="env.agentLabel">{{ agentShort }}</b>
         </div>
       </div>
     </aside>

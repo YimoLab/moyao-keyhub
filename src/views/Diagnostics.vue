@@ -182,7 +182,7 @@ async function runTest() {
 
     if (res.success) {
       toast.push(
-        res.remoteKind === 'git-hosting' ? res.summary : `连接成功（${res.elapsedMs}ms）`,
+        res.remoteKind === 'git-hosting' ? `认证成功（${res.elapsedMs}ms）` : `连接成功（${res.elapsedMs}ms）`,
         'success',
       )
     } else {

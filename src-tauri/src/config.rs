@@ -257,6 +257,10 @@ pub fn parse_hosts(raw: &str) -> KhResult<(Vec<HostEntry>, Vec<String>)> {
             "port" => h.port = value.trim().parse::<u32>().unwrap_or(0),
             "user" => h.user = value.to_string(),
             "identityfile" => h.identity = value.to_string(),
+            // IdentitiesOnly 由 identity 派生：渲染托管块时会在 IdentityFile 之后
+            // 统一补一行。这里若再收进 extra，每保存一次就会多追加一行，
+            // 最终在 config 里累积成一长串重复项。
+            "identitiesonly" => {}
             _ => h.extra.push([key.to_string(), value.to_string()]),
         }
     }
@@ -315,6 +319,11 @@ pub fn render_managed_block(hosts: &[HostEntry]) -> String {
                 continue;
             }
             if pair[0].is_empty() {
+                continue;
+            }
+            // 旧版本保存时可能已把 IdentitiesOnly 写进 extra；
+            // 该指令由上面的 IdentityFile 分支统一生成，这里跳过以免重复累积。
+            if pair[0].eq_ignore_ascii_case("IdentitiesOnly") {
                 continue;
             }
             out.push_str(&format!("    {} {}\n", pair[0], pair[1]));
@@ -901,5 +910,55 @@ mod tests {
             err.hint.contains("git"),
             "hint 应提示 Git 托管平台的用户名为 git: {err:?}"
         );
+    }
+
+    /// IdentitiesOnly 由 IdentityFile 派生：解析时不能进 extra，
+    /// 否则每保存一次就多追加一行，config 里会累积出一长串重复指令。
+    #[test]
+    fn identities_only_is_not_accumulated_on_save() {
+        let hosts = vec![HostEntry {
+            alias: "gh".into(),
+            hostname: "github.com".into(),
+            identity: "~/.ssh/gh_ed25519".into(),
+            ..Default::default()
+        }];
+
+        // 连续保存多次，模拟「保存 → 重新加载 → 再保存」
+        let mut raw = String::new();
+        for round in 0..3 {
+            raw = apply_managed(&raw, &hosts);
+            let (parsed, _) = parse_hosts(&raw).unwrap();
+            assert!(
+                parsed[0]
+                    .extra
+                    .iter()
+                    .all(|p| !p[0].eq_ignore_ascii_case("IdentitiesOnly")),
+                "第 {round} 轮 IdentitiesOnly 不应进入 extra: {:?}",
+                parsed[0].extra
+            );
+        }
+
+        assert_eq!(
+            raw.matches("IdentitiesOnly yes").count(),
+            1,
+            "重复保存后应只有一行: {raw}"
+        );
+    }
+
+    /// 旧版本已经写进 extra 的 IdentitiesOnly 在重新渲染时要去重。
+    #[test]
+    fn legacy_identities_only_in_extra_is_deduplicated() {
+        let hosts = vec![HostEntry {
+            alias: "gh".into(),
+            identity: "~/.ssh/gh".into(),
+            extra: vec![
+                ["IdentitiesOnly".into(), "yes".into()],
+                ["ForwardAgent".into(), "yes".into()],
+            ],
+            ..Default::default()
+        }];
+        let block = render_managed_block(&hosts);
+        assert_eq!(block.matches("IdentitiesOnly").count(), 1, "{block}");
+        assert!(block.contains("ForwardAgent yes"), "其它指令必须保留: {block}");
     }
 }
