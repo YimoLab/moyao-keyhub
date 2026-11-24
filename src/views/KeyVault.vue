@@ -155,6 +155,28 @@ async function loadReferenced() {
   }
 }
 
+/* agent 中已加载的密钥：按 SHA256 指纹匹配（忽略填充与大小写差异） */
+function normalizeFp(fp) {
+  return String(fp || '')
+    .trim()
+    .replace(/^SHA256:/i, '')
+    .replace(/=+$/, '')
+}
+
+const agentFpSet = computed(() => {
+  const set = new Set()
+  for (const item of store.env.agentKeys || []) {
+    const fp = normalizeFp(item.fingerprint)
+    if (fp) set.add(fp)
+  }
+  return set
+})
+
+function isInAgent(k) {
+  if (!k || !k.fingerprint) return false
+  return agentFpSet.value.has(normalizeFp(k.fingerprint))
+}
+
 /* 轮换提醒：超过 N 天的密钥 */
 const ROTATE_DAYS = 365
 const staleKeys = computed(() =>
@@ -407,6 +429,7 @@ async function copyText(text, label) {
 const agentBusy = ref(false)
 
 async function addToAgent(k) {
+  if (agentBusy.value) return
   agentBusy.value = true
   try {
     await api.agentAddKey(k.filename, 0)
@@ -420,12 +443,16 @@ async function addToAgent(k) {
 }
 
 async function removeFromAgent(k) {
+  if (agentBusy.value) return
+  agentBusy.value = true
   try {
     await api.agentRemoveKey(k.filename)
     toast.push(`已从 agent 移除 ${k.filename}`, 'success')
     await store.refreshAgent()
   } catch (e) {
     toast.push(e.message || '移除失败', 'danger')
+  } finally {
+    agentBusy.value = false
   }
 }
 
@@ -504,7 +531,7 @@ async function doPassphrase() {
 
 /* 初始化 */
 onMounted(async () => {
-  await Promise.allSettled([load(), loadReferenced()])
+  await Promise.allSettled([load(), loadReferenced(), store.refreshAgent()])
 })
 
 /** 指纹缩略展示 */
@@ -680,7 +707,15 @@ defineExpose({ load })
                     <div class="anx-cell-main">
                       <span class="kh-key-ico"><Icon name="key" :size="15" /></span>
                       <div class="kh-grow">
-                        <div class="anx-cell-title">{{ k.filename }}</div>
+                        <div class="anx-cell-title">
+                          <span class="kh-file-name" :title="k.filename">{{ k.filename }}</span>
+                          <span
+                            v-if="isInAgent(k)"
+                            class="kh-agent-dot"
+                            title="已在 ssh-agent 中"
+                            aria-hidden="true"
+                          ></span>
+                        </div>
                         <div v-if="k.comment || k.createdAt" class="anx-cell-sub">
                           {{ [k.comment, (k.createdAt || '').slice(0, 10)].filter(Boolean).join(' · ') }}
                         </div>
@@ -720,6 +755,18 @@ defineExpose({ load })
                         修复权限
                       </button>
                       <button
+                        v-if="isInAgent(k)"
+                        class="anx-btn anx-btn--ghost anx-btn--sm"
+                        title="从 ssh-agent 移除"
+                        aria-label="从 ssh-agent 移除"
+                        :disabled="agentBusy"
+                        @click="removeFromAgent(k)"
+                      >
+                        <Icon name="minus" :size="14" />
+                        移出 agent
+                      </button>
+                      <button
+                        v-else
                         class="anx-btn anx-btn--ghost anx-btn--sm"
                         title="加入 ssh-agent"
                         aria-label="加入 ssh-agent"
@@ -727,7 +774,7 @@ defineExpose({ load })
                         @click="addToAgent(k)"
                       >
                         <Icon name="shield" :size="14" />
-                        agent
+                        加入 agent
                       </button>
                       <button
                         class="anx-iconbtn anx-btn--sm"
@@ -888,6 +935,13 @@ defineExpose({ load })
                   :class="current.hasPassphrase ? 'anx-badge--ok' : 'anx-badge--neutral'"
                 >
                   {{ current.hasPassphrase ? '口令保护' : '无口令' }}
+                </span>
+                <span
+                  class="anx-badge"
+                  :class="isInAgent(current) ? 'anx-badge--ok' : 'anx-badge--neutral'"
+                >
+                  <Icon :name="isInAgent(current) ? 'check' : 'shield'" :size="12" />
+                  {{ isInAgent(current) ? '已在 agent' : '未加入 agent' }}
                 </span>
               </div>
             </div>
@@ -1061,11 +1115,21 @@ defineExpose({ load })
                 <Icon name="lock" :size="14" />
                 设置口令保护
               </button>
-              <button class="anx-btn anx-btn--ghost anx-btn--sm" :disabled="agentBusy" @click="addToAgent(current)">
+              <button
+                v-if="!isInAgent(current)"
+                class="anx-btn anx-btn--ghost anx-btn--sm"
+                :disabled="agentBusy"
+                @click="addToAgent(current)"
+              >
                 <Icon name="shield" :size="14" />
                 加入 ssh-agent
               </button>
-              <button class="anx-btn anx-btn--ghost anx-btn--sm" @click="removeFromAgent(current)">
+              <button
+                v-else
+                class="anx-btn anx-btn--ghost anx-btn--sm"
+                :disabled="agentBusy"
+                @click="removeFromAgent(current)"
+              >
                 <Icon name="minus" :size="14" />
                 从 agent 移除
               </button>

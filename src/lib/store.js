@@ -24,6 +24,8 @@ const env = reactive({
   agentRunning: false,
   /** agent 已加载的密钥数（侧栏精简展示用） */
   agentCount: 0,
+  /** agent 已加载的密钥列表（指纹匹配用，refreshAgent 后填充） */
+  agentKeys: [],
   keyCount: 0,
   hasConfig: false,
   /** 全量报告（诊断页用） */
@@ -87,6 +89,8 @@ async function refreshEnv() {
     env.agentLabel = summary.agentLabel || '未知'
     env.agentRunning = !!summary.agentRunning
     env.agentCount = summary.agentCount || 0
+    /* summary 只带数量；agent 未运行时清掉旧列表，避免误标「已加入」 */
+    if (!env.agentRunning) env.agentKeys = []
     env.keyCount = summary.keyCount || 0
     env.hasConfig = !!summary.hasConfig
     env.loaded = true
@@ -123,6 +127,7 @@ async function loadReport(createSshDir = false) {
   if (report.agent) {
     env.agentRunning = !!report.agent.running
     env.agentCount = report.agent.identities?.length || 0
+    env.agentKeys = report.agent.identities || []
     env.agentLabel = report.agent.running
       ? report.agent.identities?.length
         ? `agent 已加载 ${report.agent.identities.length} 把密钥`
@@ -138,6 +143,7 @@ async function refreshAgent() {
     const st = normalize(await api.agentStatus())
     env.agentRunning = !!st.running
     env.agentCount = st.count || 0
+    env.agentKeys = st.keys || []
     env.agentLabel = st.label || ''
     return st
   } catch {
