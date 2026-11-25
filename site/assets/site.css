@@ -953,6 +953,12 @@ code, kbd, pre { font-family: var(--font-mono); }
   color: color-mix(in srgb, var(--on-acid) 72%, transparent);
 }
 .ks-dl__meta a { color: var(--on-acid); text-decoration-color: color-mix(in srgb, var(--on-acid) 35%, transparent); }
+.ks-dl__meta strong {
+  font-weight: 700;
+  color: var(--on-acid);
+  font-variant-numeric: tabular-nums;
+}
+.ks-dl__downloads[hidden] { display: none; }
 
 /* --------------------------------------------------------------------------
    FAQ

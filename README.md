@@ -337,7 +337,7 @@ python -m http.server 8137 --directory site
 # 打开 http://127.0.0.1:8137/
 ```
 
-官网与桌面端共用鉴枢设计系统资产，截图取自实际运行的应用；版本号、安装包体积与下载链接会从 GitHub 最新 Release 自动同步。部署到 Cloudflare 时使用仓库根的 `wrangler.jsonc`（把 `site/` 作为静态资产目录），构建命令留空；完整步骤与发布检查见 `site/README.md`。
+官网与桌面端共用鉴枢设计系统资产，截图取自实际运行的应用；版本号、安装包体积与下载链接会从 GitHub 最新 Release 自动同步。部署到 Cloudflare 时使用仓库根的 `wrangler.jsonc`（把 `site/` 作为静态资产目录），构建命令留空；完整步骤、下载量统计与访问统计的配置见 `site/README.md`。
 
 ## 三端支持
 

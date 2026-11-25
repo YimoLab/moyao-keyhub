@@ -222,11 +222,11 @@
   }
 
   /* --------------------------------------------------------------------------
-     最新版本：读取 GitHub 最新 Release，异步更新版本号、安装包链接与体积。
-     HTML 里的 v0.2.9 / 2.4 MB 是静态兜底；离线、限流或接口改名时保持原样。
+     版本与下载统计：读取 GitHub Releases，异步更新版本号、安装包链接、体积
+     和累计下载量。HTML 里的静态值只在接口失败时兜底。
      -------------------------------------------------------------------------- */
-  var RELEASE_API = 'https://api.github.com/repos/YimoLab/moyao-keyhub/releases/latest'
-  var RELEASE_CACHE_KEY = 'keyhub.latestRelease.v1'
+  var RELEASES_API = 'https://api.github.com/repos/YimoLab/moyao-keyhub/releases?per_page=100'
+  var RELEASE_CACHE_KEY = 'keyhub.releases.v2'
   var RELEASE_TTL = 6 * 60 * 60 * 1000
 
   function formatSize(bytes) {
@@ -236,7 +236,15 @@
     return Math.max(1, Math.round(bytes / 1024)) + ' KB'
   }
 
-  function applyRelease(rel) {
+  function formatCount(n) {
+    try {
+      return new Intl.NumberFormat('zh-CN').format(n)
+    } catch (e) {
+      return String(n)
+    }
+  }
+
+  function applyRelease(rel, totalDownloads) {
     if (!rel || !rel.tag_name) return
     var tag = String(rel.tag_name)
     var display = /^v/i.test(tag) ? tag : 'v' + tag
@@ -262,6 +270,15 @@
       }
     }
 
+    if (typeof totalDownloads === 'number' && isFinite(totalDownloads)) {
+      document.querySelectorAll('[data-kh-downloads]').forEach(function (el) {
+        el.textContent = formatCount(totalDownloads)
+      })
+      document.querySelectorAll('[data-kh-downloads-wrap]').forEach(function (el) {
+        el.hidden = false
+      })
+    }
+
     var ld = document.getElementById('kh-jsonld')
     if (ld) {
       try {
@@ -275,6 +292,25 @@
     }
 
     root.setAttribute('data-release', display)
+  }
+
+  /** 汇总所有 Release：取最新正式版，并累加各版本 .exe 安装包的下载次数 */
+  function summarizeReleases(releases) {
+    if (!Array.isArray(releases)) return null
+    var latest = releases.filter(function (r) {
+      return r && r.tag_name && !r.draft && !r.prerelease
+    })[0]
+    if (!latest) return null
+
+    var total = 0
+    releases.forEach(function (r) {
+      (r.assets || []).forEach(function (a) {
+        if (/\.exe$/i.test(a.name || '') && !/\.sig$/i.test(a.name || '')) {
+          total += Number(a.download_count) || 0
+        }
+      })
+    })
+    return { latest: latest, total: total }
   }
 
   function cachedRelease() {
@@ -294,7 +330,7 @@
     var controller = typeof AbortController === 'function' ? new AbortController() : null
     var timer = controller ? setTimeout(function () { controller.abort() }, 4500) : null
 
-    fetch(RELEASE_API, {
+    fetch(RELEASES_API, {
       headers: { Accept: 'application/vnd.github+json' },
       signal: controller ? controller.signal : undefined,
     })
@@ -303,14 +339,17 @@
         return res.json()
       })
       .then(function (data) {
-        applyRelease(data)
+        var summary = summarizeReleases(data)
+        if (!summary) throw new Error('no release')
+        applyRelease(summary.latest, summary.total)
         try {
           /* 只缓存用得到的字段，避免把 release notes 整包塞进 localStorage */
           var slim = {
-            tag_name: data.tag_name,
-            assets: (data.assets || []).map(function (a) {
+            tag_name: summary.latest.tag_name,
+            assets: (summary.latest.assets || []).map(function (a) {
               return { name: a.name, size: a.size, browser_download_url: a.browser_download_url }
             }),
+            total: summary.total,
           }
           localStorage.setItem(RELEASE_CACHE_KEY, JSON.stringify({ at: Date.now(), data: slim }))
         } catch (e) {
@@ -318,7 +357,7 @@
         }
       })
       .catch(function () {
-        /* 离线 / 限流 / 网络错误：保留静态兜底值 */
+        /* 离线 / 限流 / 网络错误：保留静态兜底值，统计数字保持隐藏 */
       })
       .finally(function () {
         if (timer) clearTimeout(timer)
@@ -327,7 +366,7 @@
 
   var cached = cachedRelease()
   if (cached) {
-    applyRelease(cached)
+    applyRelease(cached, cached.total)
   } else if (typeof requestIdleCallback === 'function') {
     requestIdleCallback(fetchLatestRelease, { timeout: 2500 })
   } else {

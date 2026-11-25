@@ -51,7 +51,7 @@ https://api.github.com/repos/YimoLab/moyao-keyhub/releases/latest
 
 因此**发版后通常不需要改页面**。仍建议把 HTML 里的静态值保持为最新版本，作为兜底：
 
-- 首屏 meta、下载区 meta 与页脚的 `v0.2.9`
+- 首屏 meta、下载区 meta 与页脚的 `v0.2.10`
 - 两个 `data-kh-download` 的兜底链接
 - 两处 `data-kh-size` 的兜底体积
 - JSON-LD 的 `softwareVersion` / `downloadUrl`
@@ -59,6 +59,35 @@ https://api.github.com/repos/YimoLab/moyao-keyhub/releases/latest
 如果仓库迁移或改名，同步修改 `assets/site.js` 里的 `RELEASE_API`。
 
 > 官网会向 GitHub API 发起一次只读请求，不发送访客数据。GitHub 未认证接口限流为 60 次/小时/IP；访问量大的公开站点建议换成自己的版本端点或加一层服务端缓存。
+
+## 统计
+
+### 下载量
+
+下载卡的「安装包累计下载」来自 GitHub Releases API，汇总所有正式 Release 中 `.exe` 资产（排除 `.sig`）的 `download_count`。它与版本同步共用一次请求：
+
+- API：`/repos/YimoLab/moyao-keyhub/releases?per_page=100`
+- 缓存 6 小时（`localStorage` 键 `keyhub.releases.v2`）
+- 接口失败时整项隐藏，不显示 `0` 或伪造数字
+
+这个数字包含官网按钮、GitHub 页面和客户端自动更新触发的安装包下载，所以是「安装包下载次数」，不等同于独立用户数。
+
+### 访问量
+
+使用 Cloudflare Web Analytics（无 Cookie、无跨站追踪）：
+
+1. Cloudflare Dashboard → **Analytics & Logs** → **Web Analytics**。
+2. **Add a site**，填写 `keyhub.casuainess.cn`。域名已通过 Cloudflare 代理，默认使用自动安装。
+3. 如果 Workers 自定义域名没有自动注入，在 **Manage site** 复制 JS snippet，粘到 `index.html` 的 `</body>` 前。CSP 已允许所需域名：
+   - `script-src https://static.cloudflareinsights.com`
+   - `connect-src https://cloudflareinsights.com`
+4. 数据在 Cloudflare Web Analytics 后台查看：访问量、路径、来源、国家、设备等，通常延迟几分钟。
+
+说明：
+
+- 官网的访问统计与桌面程序无关。墨钥桌面端仍然是默认零网络请求、不含遥测。
+- 官网的网络请求只有两类：GitHub Releases API（版本与下载量）和 Cloudflare Web Analytics（如果启用）。
+- 如果要在官网页面上直接显示访问量，需要自建 Worker + KV 计数器，且计数容易被刷新和爬虫污染；当前没有实现。
 
 ## 更新截图
 
@@ -153,11 +182,13 @@ CSS / JS / 截图的文件名不带内容哈希，所以缓存策略设为 `must
 ### 发布后检查
 
 1. `https://<domain>/` 正常，浅色 / 深色都能切换；
-2. 控制台无 CSP 报错；Network 中 `api.github.com/.../releases/latest` 返回 200；
+2. 控制台无 CSP 报错；Network 中 `api.github.com/.../releases?per_page=100` 返回 200；
 3. 页脚版本、安装包体积与 GitHub 最新 Release 一致；
 4. 任意不存在的路径（如 `/not-a-page`）显示自定义 404；
 5. 正式域名为 `https://keyhub.casuainess.cn/`；`canonical`、`og:url`、`og:image`、`twitter:image`、JSON-LD 的 `url` 与 `robots.txt` 里的 sitemap 都已指向它。换域名时同步修改这些位置，避免默认域名（`*.workers.dev` / `*.pages.dev`）与正式域名重复收录；
-6. 两个下载按钮都能下载到最新安装包。
+6. 两个下载按钮都能下载到最新安装包；
+7. 下载卡的「安装包累计下载」显示数字，且与 GitHub Releases 中各 `.exe` 的下载次数之和一致；接口失败时该项隐藏是预期行为；
+8. 如果启用了 Cloudflare Web Analytics，后台能看到访问数据。
 
 ### 说明
 
