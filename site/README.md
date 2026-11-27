@@ -18,7 +18,7 @@ python -m http.server 8137 --directory site
 |---|---|
 | `index.html` | 页面结构、文案、SEO 与 JSON-LD |
 | `assets/site.css` | 站点层样式，`ks-` 前缀，只做布局与营销区块 |
-| `assets/site.js` | 主题切换（含涟漪）、导航滚动态、当前章节、入场动画、GitHub 最新版本同步 |
+| `assets/site.js` | 主题切换（含涟漪）、导航滚动态、当前章节、入场动画、GitHub 最新版本同步、反馈邮箱复制 |
 | `assets/theme-init.js` | 首帧主题预置，键为 `authnexus.theme`（与桌面端共用） |
 | `assets/shots/` | 产品截图，2240 与 1120 两档 WebP，配合 `srcset` |
 | `design/css/` | 鉴枢设计系统 CSS 资产副本 |
@@ -88,6 +88,23 @@ https://api.github.com/repos/YimoLab/moyao-keyhub/releases/latest
 - 官网的访问统计与桌面程序无关。墨钥桌面端仍然是默认零网络请求、不含遥测。
 - 官网的网络请求只有两类：GitHub Releases API（版本与下载量）和 Cloudflare Web Analytics（如果启用）。
 - 如果要在官网页面上直接显示访问量，需要自建 Worker + KV 计数器，且计数容易被刷新和爬虫污染；当前没有实现。
+
+## 反馈通道
+
+页面提供两个反馈入口，位于 FAQ 之后的「反馈」区块，导航与页脚均有锚点：
+
+- **GitHub Issues**：`https://github.com/YimoLab/moyao-keyhub/issues`，适合可公开的 bug 报告与讨论，处理进度可追踪。
+- **邮件反馈**：`suggest-keyhub@casuainess.cn`，提供 `mailto:` 链接与一键复制按钮，适合不适合公开的内容。
+
+复制按钮由 `assets/site.js` 驱动：优先使用 Clipboard API，权限被拒时回退到 `document.execCommand('copy')`；两者都失败时按钮显示「复制失败」，邮箱文本仍可手动选择，不会假装成功。按钮初始带 `hidden`，脚本加载后才显示，因此无 JavaScript 时只呈现 `mailto:` 链接，不会出现点不动的按钮。
+
+修改反馈邮箱时，搜索并同步以下位置：
+
+- `index.html` 反馈区的 `mailto:` 与 `data-kh-copy`
+- `index.html` 页脚的「邮件反馈」链接
+- `index.html` JSON-LD 的 `contactPoint.email`
+
+反馈区还包含一条安全提示（不要附私钥、口令或服务器凭据），修改文案时保留这一约束。
 
 ## 更新截图
 
@@ -188,7 +205,8 @@ CSS / JS / 截图的文件名不带内容哈希，所以缓存策略设为 `must
 5. 正式域名为 `https://keyhub.casuainess.cn/`；`canonical`、`og:url`、`og:image`、`twitter:image`、JSON-LD 的 `url` 与 `robots.txt` 里的 sitemap 都已指向它。换域名时同步修改这些位置，避免默认域名（`*.workers.dev` / `*.pages.dev`）与正式域名重复收录；
 6. 两个下载按钮都能下载到最新安装包；
 7. 下载卡的「安装包累计下载」显示数字，且与 GitHub Releases 中各 `.exe` 的下载次数之和一致；接口失败时该项隐藏是预期行为；
-8. 如果启用了 Cloudflare Web Analytics，后台能看到访问数据。
+8. 如果启用了 Cloudflare Web Analytics，后台能看到访问数据；
+9. 反馈区的 GitHub 按钮指向 Issues 列表，邮件地址可打开邮件客户端；复制按钮点击后显示「已复制」，无 JS 时复制按钮隐藏、`mailto:` 仍可用。
 
 ### 说明
 

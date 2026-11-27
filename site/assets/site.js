@@ -374,6 +374,67 @@
   }
 
   /* --------------------------------------------------------------------------
+     反馈邮箱复制：优先 Clipboard API，被拒时回退到临时 textarea。
+     复制按钮默认 hidden，脚本可用时才显示，避免无 JS 时出现无效按钮。
+     -------------------------------------------------------------------------- */
+  var copyBtns = Array.prototype.slice.call(document.querySelectorAll('[data-kh-copy]'))
+
+  function legacyCopy(text) {
+    var area = document.createElement('textarea')
+    area.value = text
+    area.setAttribute('readonly', '')
+    area.style.cssText = 'position:fixed;top:0;left:-9999px;opacity:0'
+    document.body.appendChild(area)
+    area.select()
+    var ok = false
+    try {
+      ok = document.execCommand('copy')
+    } catch (e) {
+      ok = false
+    }
+    area.remove()
+    return ok
+  }
+
+  function copyText(text) {
+    if (navigator.clipboard && typeof navigator.clipboard.writeText === 'function') {
+      try {
+        return Promise.resolve(navigator.clipboard.writeText(text)).then(
+          function () { return true },
+          function () { return legacyCopy(text) }
+        )
+      } catch (e) {
+        /* 某些环境调用即抛错，继续走回退 */
+      }
+    }
+    return Promise.resolve(legacyCopy(text))
+  }
+
+  copyBtns.forEach(function (btn) {
+    var label = btn.querySelector('[data-kh-copy-label]')
+    var status = document.getElementById(btn.getAttribute('aria-describedby') || '')
+    var idle = label ? label.textContent : ''
+    var timer = null
+
+    btn.hidden = false
+
+    btn.addEventListener('click', function () {
+      copyText(btn.getAttribute('data-kh-copy') || '').then(function (ok) {
+        btn.classList.toggle('is-copied', ok)
+        btn.classList.toggle('is-failed', !ok)
+        if (label) label.textContent = ok ? '已复制' : '复制失败'
+        if (status) status.textContent = ok ? '邮箱地址已复制到剪贴板' : '复制失败，请手动选择邮箱地址'
+        if (timer) clearTimeout(timer)
+        timer = setTimeout(function () {
+          btn.classList.remove('is-copied', 'is-failed')
+          if (label) label.textContent = idle
+          if (status) status.textContent = ''
+        }, 2400)
+      })
+    })
+  })
+
+  /* --------------------------------------------------------------------------
      页脚年份
      -------------------------------------------------------------------------- */
   var year = document.getElementById('year')

@@ -46,7 +46,13 @@
     "description": "本地优先的 Windows SSH 密钥管理桌面程序：可视化生成密钥、编辑 SSH Config、修复权限、测试连通性。",
     "downloadUrl": "https://github.com/YimoLab/moyao-keyhub/releases/download/v0.2.10/KeyHub_0.2.10_x64-setup.exe",
     "codeRepository": "https://github.com/YimoLab/moyao-keyhub",
-    "author": { "@type": "Organization", "name": "YimoLab" }
+    "author": { "@type": "Organization", "name": "YimoLab" },
+    "contactPoint": {
+      "@type": "ContactPoint",
+      "contactType": "technical support",
+      "email": "suggest-keyhub@casuainess.cn",
+      "availableLanguage": "zh-CN"
+    }
   }
   </script>
 </head>
@@ -70,6 +76,9 @@
       <symbol id="i-moon" viewBox="0 0 24 24"><path d="M20.2 14.4A8.5 8.5 0 0 1 9.6 3.8a8.6 8.6 0 1 0 10.6 10.6Z"/></symbol>
       <symbol id="i-ban" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.6"/><path d="m6.1 6.1 11.8 11.8"/></symbol>
       <symbol id="i-external" viewBox="0 0 24 24"><path d="M14 4.5h5.5V10"/><path d="M19.5 4.5 12 12"/><path d="M18 14v4.6a2.2 2.2 0 0 1-2.2 2.2H5.5a2.2 2.2 0 0 1-2.2-2.2V8.2A2.2 2.2 0 0 1 5.5 6H10"/></symbol>
+      <symbol id="i-mail" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2.4"/><path d="m3.7 6.7 7.2 5.4a2 2 0 0 0 2.2 0l7.2-5.4"/></symbol>
+      <symbol id="i-copy" viewBox="0 0 24 24"><rect x="9" y="9" width="11.5" height="11.5" rx="2.4"/><path d="M15 6.4v-.9A2.2 2.2 0 0 0 12.8 3.3H5.5A2.2 2.2 0 0 0 3.3 5.5v7.3A2.2 2.2 0 0 0 5.5 15h.9"/></symbol>
+      <symbol id="i-code" viewBox="0 0 24 24"><path d="m8.6 8-4 4 4 4"/><path d="m15.4 8 4 4-4 4"/><path d="m13.6 5.2-3.2 13.6"/></symbol>
     </defs>
   </svg>
 
@@ -92,6 +101,7 @@
         <a href="#tour">界面</a>
         <a href="#security">安全</a>
         <a href="#faq">问答</a>
+        <a href="#feedback">反馈</a>
       </nav>
 
       <div class="ks-nav__actions">
@@ -583,6 +593,55 @@
         </div>
       </div>
     </section>
+    <!-- ══════ 反馈 ══════ -->
+    <section class="ks-sec" id="feedback">
+      <div class="ks-wrap">
+        <div class="ks-sec__head ks-sec__head--center ks-reveal">
+          <p class="ks-kicker">08 / 反馈</p>
+          <h2 class="ks-h2">遇到问题，或者有个想法？</h2>
+          <p class="ks-lead">
+            公开的问题建议走 GitHub Issues，处理进度可以追踪，其他人也能搜到答案；
+            不想公开的内容，直接发邮件。
+          </p>
+        </div>
+
+        <div class="ks-feedback">
+          <article class="ks-fbcard ks-reveal">
+            <span class="ks-fbcard__icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><use href="#i-code" /></svg>
+            </span>
+            <h3>GitHub Issues</h3>
+            <p>适合 bug 报告和公开讨论。提交后能看到处理进度，后来的人也能搜到同样的解决方案。</p>
+            <a class="anx-btn anx-btn--ghost ks-fbcard__action" href="https://github.com/YimoLab/moyao-keyhub/issues" target="_blank" rel="noopener noreferrer">
+              查看与提交 Issue
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-external" /></svg>
+            </a>
+          </article>
+
+          <article class="ks-fbcard ks-reveal">
+            <span class="ks-fbcard__icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><use href="#i-mail" /></svg>
+            </span>
+            <h3>邮件反馈</h3>
+            <p>不想注册 GitHub，或者内容不适合公开，直接写信给我们。安装、配置、兼容性问题都可以。</p>
+            <div class="ks-fbmail">
+              <a class="ks-fbmail__addr" href="mailto:suggest-keyhub@casuainess.cn">suggest-keyhub@casuainess.cn</a>
+              <button class="anx-btn anx-btn--ghost anx-btn--sm ks-copy" type="button" data-kh-copy="suggest-keyhub@casuainess.cn" aria-describedby="kh-copy-status" hidden>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-copy" /></svg>
+                <span data-kh-copy-label>复制</span>
+              </button>
+            </div>
+            <span class="ks-sr" id="kh-copy-status" role="status" aria-live="polite"></span>
+          </article>
+        </div>
+
+        <p class="ks-feedback__note ks-reveal">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-shield-check" /></svg>
+          <span>反馈时请勿附上私钥、口令或服务器凭据；日志里的主机名、用户名与本地路径也建议先打码。</span>
+        </p>
+      </div>
+    </section>
+
   </main>
 
   <footer class="ks-foot">
@@ -606,6 +665,7 @@
           <a href="https://github.com/YimoLab/moyao-keyhub" target="_blank" rel="noopener noreferrer">源码仓库</a>
           <a href="https://github.com/YimoLab/moyao-keyhub/releases" target="_blank" rel="noopener noreferrer">所有版本</a>
           <a href="https://github.com/YimoLab/moyao-keyhub/issues" target="_blank" rel="noopener noreferrer">问题反馈</a>
+          <a href="mailto:suggest-keyhub@casuainess.cn">邮件反馈</a>
           <a href="#top">回到顶部</a>
         </nav>
       </div>
